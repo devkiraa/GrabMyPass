@@ -35,7 +35,9 @@ export default function CreateEventPage() {
         maxRegistrations: 0, // 0 = unlimited
         allowMultipleRegistrations: true, // Allow same email to register multiple times
         emailTemplateId: '', // Selected email template
-        sendConfirmationEmail: true // Send confirmation emails
+        sendConfirmationEmail: true, // Send confirmation emails
+        ticketTemplateId: '', // Selected ticket template
+        attachTicket: true // Attach ticket to email
     });
 
     // Step 2: Form Builder
@@ -46,6 +48,9 @@ export default function CreateEventPage() {
 
     // Email Templates
     const [emailTemplates, setEmailTemplates] = useState<Array<{ _id: string; name: string; subject: string; type: string }>>([]);
+
+    // Ticket Templates
+    const [ticketTemplates, setTicketTemplates] = useState<Array<{ _id: string; name: string; width: number; height: number; isDefault: boolean }>>([]);
 
     // Validations & Async
     const [username, setUsername] = useState('');
@@ -92,8 +97,31 @@ export default function CreateEventPage() {
             }
         };
 
+        // Fetch Ticket Templates
+        const fetchTicketTemplates = async () => {
+            const token = localStorage.getItem('auth_token');
+            if (!token) return;
+            try {
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/ticket-templates`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const templates = await res.json();
+                    setTicketTemplates(templates);
+                    // Auto-select default ticket template if available
+                    const defaultTemplate = templates.find((t: any) => t.isDefault);
+                    if (defaultTemplate && !formData.ticketTemplateId) {
+                        setFormData(prev => ({ ...prev, ticketTemplateId: defaultTemplate._id }));
+                    }
+                }
+            } catch (e) {
+                console.error('Failed to fetch ticket templates', e);
+            }
+        };
+
         fetchUser();
         fetchTemplates();
+        fetchTicketTemplates();
     }, []);
 
     // Debounced Slug Check
@@ -172,7 +200,9 @@ export default function CreateEventPage() {
                             maxRegistrations: draft.maxRegistrations || 0,
                             allowMultipleRegistrations: draft.allowMultipleRegistrations !== false,
                             emailTemplateId: draft.emailTemplateId || '',
-                            sendConfirmationEmail: draft.sendConfirmationEmail !== false
+                            sendConfirmationEmail: draft.sendConfirmationEmail !== false,
+                            ticketTemplateId: draft.ticketTemplateId || '',
+                            attachTicket: draft.attachTicket !== false
                         });
                         if (draft.formSchema) setQuestions(draft.formSchema);
                         if (!draft.date) setNoDate(true);
@@ -598,6 +628,70 @@ export default function CreateEventPage() {
                                         Select a custom template or use the default.
                                         <a href="/dashboard/settings/email-templates" className="text-indigo-600 hover:underline ml-1">
                                             Create templates →
+                                        </a>
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Ticket Design Section */}
+                        <div className="space-y-4 p-4 bg-purple-50/50 rounded-lg border border-purple-100">
+                            <div className="flex items-center gap-2">
+                                <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
+                                </svg>
+                                <Label className="text-base font-semibold text-purple-900">Ticket Design</Label>
+                            </div>
+
+                            {/* Attach Ticket Toggle */}
+                            <div className="flex items-center justify-between">
+                                <div className="space-y-0.5">
+                                    <Label htmlFor="attachTicket" className="cursor-pointer">
+                                        Attach Ticket to Email
+                                    </Label>
+                                    <p className="text-xs text-slate-500">
+                                        Generate and attach a custom ticket with QR code
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={formData.attachTicket}
+                                    onClick={() => setFormData(prev => ({
+                                        ...prev,
+                                        attachTicket: !prev.attachTicket
+                                    }))}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.attachTicket ? 'bg-purple-600' : 'bg-slate-300'
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.attachTicket ? 'translate-x-6' : 'translate-x-1'
+                                            }`}
+                                    />
+                                </button>
+                            </div>
+
+                            {/* Ticket Template Selector */}
+                            {formData.attachTicket && (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="ticketTemplateId">Ticket Template</Label>
+                                    <select
+                                        id="ticketTemplateId"
+                                        value={formData.ticketTemplateId}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, ticketTemplateId: e.target.value }))}
+                                        className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-600"
+                                    >
+                                        <option value="">Use default ticket design</option>
+                                        {ticketTemplates.map((template) => (
+                                            <option key={template._id} value={template._id}>
+                                                {template.name} ({template.width}×{template.height}px)
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-slate-500">
+                                        Select a custom ticket design or use the default.
+                                        <a href="/dashboard/settings/ticket-templates" className="text-purple-600 hover:underline ml-1">
+                                            Design tickets →
                                         </a>
                                     </p>
                                 </div>

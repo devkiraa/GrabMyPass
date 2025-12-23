@@ -14,7 +14,9 @@ import {
     Bell,
     QrCode,
     Mail,
-    FileText
+    FileText,
+    CreditCard,
+    Clock
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -138,8 +140,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Button
                         variant="ghost"
                         className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/emails'
-                                ? 'bg-indigo-50 text-indigo-700'
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                             }`}
                         onClick={() => router.push('/dashboard/settings/emails')}
                     >
@@ -149,13 +151,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <Button
                         variant="ghost"
                         className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/email-templates'
-                                ? 'bg-indigo-50 text-indigo-700'
-                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                             }`}
                         onClick={() => router.push('/dashboard/settings/email-templates')}
                     >
                         <FileText className="mr-3 h-5 w-5" />
                         Email Templates
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/ticket-templates'
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            }`}
+                        onClick={() => router.push('/dashboard/settings/ticket-templates')}
+                    >
+                        <CreditCard className="mr-3 h-5 w-5" />
+                        Ticket Designer
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/email-logs'
+                            ? 'bg-indigo-50 text-indigo-700'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                            }`}
+                        onClick={() => router.push('/dashboard/settings/email-logs')}
+                    >
+                        <Clock className="mr-3 h-5 w-5" />
+                        Email Logs
                     </Button>
                 </nav>
 

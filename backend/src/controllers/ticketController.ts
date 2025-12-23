@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { Event } from '../models/Event';
 import { Ticket } from '../models/Ticket';
 import crypto from 'crypto';
-import { emailQueue } from '../queues/emailQueue';
+import { sendTicketEmail } from '../services/emailService';
 
 // Register for Event
 export const registerTicket = async (req: Request, res: Response) => {
@@ -120,12 +120,31 @@ export const registerTicket = async (req: Request, res: Response) => {
             qrCodeHash
         });
 
-        // Add to Email Queue
-        await emailQueue.add('send-ticket', {
-            eventHostId: event.hostId,
+        // Send confirmation email directly (no queue needed)
+        sendTicketEmail({
+            eventHostId: event.hostId.toString(),
             recipientEmail: guestEmail,
-            ticketData: ticket,
-            eventDetails: event
+            ticketData: {
+                _id: ticket._id,
+                guestName,
+                guestEmail,
+                qrCodeHash
+            },
+            eventDetails: {
+                _id: event._id,
+                title: event.title,
+                slug: event.slug,
+                date: event.date || null,
+                location: event.location || '',
+                description: event.description || '',
+                emailTemplateId: event.emailTemplateId?.toString(),
+                ticketTemplateId: event.ticketTemplateId?.toString(),
+                sendConfirmationEmail: event.sendConfirmationEmail,
+                attachTicket: event.attachTicket
+            }
+        }).catch(err => {
+            // Log error but don't fail the registration
+            console.error('Email sending failed:', err.message);
         });
 
         res.status(201).json({ message: 'Ticket registered successfully', ticket });

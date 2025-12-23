@@ -80,7 +80,10 @@ import {
     getEmailTemplate,
     updateEmailTemplate,
     deleteEmailTemplate,
-    getPlaceholders
+    getPlaceholders,
+    getEmailLogs,
+    getEmailLogStats,
+    getEmailLogDetail
 } from '../controllers/emailController';
 
 // Email Accounts (Gmail OAuth)
@@ -98,3 +101,27 @@ apiRouter.get('/email/templates/placeholders', verifyToken, getPlaceholders);
 apiRouter.get('/email/templates/:templateId', verifyToken, getEmailTemplate);
 apiRouter.patch('/email/templates/:templateId', verifyToken, updateEmailTemplate);
 apiRouter.delete('/email/templates/:templateId', verifyToken, deleteEmailTemplate);
+
+// Email Logs
+apiRouter.get('/email/logs', verifyToken, getEmailLogs);
+apiRouter.get('/email/logs/stats', verifyToken, getEmailLogStats);
+apiRouter.get('/email/logs/:logId', verifyToken, getEmailLogDetail);
+
+// Ticket Templates
+import {
+    createTicketTemplate,
+    getTicketTemplates,
+    getTicketTemplate,
+    updateTicketTemplate,
+    deleteTicketTemplate,
+    getDefaultTicketTemplate,
+    getTemplateSpecs
+} from '../controllers/ticketTemplateController';
+
+apiRouter.post('/ticket-templates', verifyToken, createTicketTemplate);
+apiRouter.get('/ticket-templates', verifyToken, getTicketTemplates);
+apiRouter.get('/ticket-templates/specs', verifyToken, getTemplateSpecs);
+apiRouter.get('/ticket-templates/default', verifyToken, getDefaultTicketTemplate);
+apiRouter.get('/ticket-templates/:templateId', verifyToken, getTicketTemplate);
+apiRouter.patch('/ticket-templates/:templateId', verifyToken, updateTicketTemplate);
+apiRouter.delete('/ticket-templates/:templateId', verifyToken, deleteTicketTemplate);

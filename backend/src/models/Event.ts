@@ -28,7 +28,11 @@ const EventSchema = new mongoose.Schema({
 
     // Email Configuration
     emailTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'EmailTemplate' },
-    sendConfirmationEmail: { type: Boolean, default: true }
+    sendConfirmationEmail: { type: Boolean, default: true },
+
+    // Ticket Configuration
+    ticketTemplateId: { type: mongoose.Schema.Types.ObjectId, ref: 'TicketTemplate' },
+    attachTicket: { type: Boolean, default: true }
 }, { timestamps: true });
 
 EventSchema.index({ hostId: 1, slug: 1 }, { unique: true });

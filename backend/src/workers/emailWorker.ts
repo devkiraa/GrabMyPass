@@ -1,88 +1,364 @@
 import { Worker } from 'bullmq';
+import mongoose from 'mongoose';
+import { google } from 'googleapis';
 import nodemailer from 'nodemailer';
 import { User } from '../models/User';
-import mongoose from 'mongoose';
-import crypto from 'crypto';
-
-// Re-implementing decrypt strictly for what the worker needs if strictly necessary, 
-// but importing from utils is better.
-// Assuming the relative path is correct.
+import { EmailAccount } from '../models/EmailAccount';
+import { EmailTemplate } from '../models/EmailTemplate';
+import { TicketTemplate } from '../models/TicketTemplate';
+import { EmailLog } from '../models/EmailLog';
+import { Event } from '../models/Event';
 import { decrypt } from '../utils/encryption';
 
-// Mock of renderTicketEmail for now since we don't have the template file yet
-const renderTicketEmail = (data: any) => {
+// Generate default email HTML if no template selected
+const generateDefaultEmailHtml = (data: {
+    guestName: string;
+    eventTitle: string;
+    eventDate: string;
+    eventLocation: string;
+    ticketCode: string;
+    qrCodeUrl: string;
+}) => {
     return `
-    <html>
-      <body>
-        <h1>Your Ticket for ${data.eventDetails.title}</h1>
-        <p>Ticket ID: ${data.ticketData.qrCodeHash}</p>
-        <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${data.ticketData.qrCodeHash}" />
-      </body>
-    </html>
-    `;
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; color: #333; }
+        .ticket-box { background: #f1f5f9; padding: 25px; border-radius: 12px; text-align: center; margin: 20px 0; }
+        .qr-code { margin: 15px 0; }
+        .qr-code img { border-radius: 8px; }
+        .code { font-size: 24px; font-weight: bold; color: #4F46E5; letter-spacing: 3px; margin-top: 10px; }
+        .details { margin: 20px 0; padding: 20px; background: #fafafa; border-radius: 8px; }
+        .detail-row { display: flex; margin: 10px 0; }
+        .detail-icon { width: 24px; margin-right: 10px; }
+        .footer { padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎉 You're Registered!</h1>
+        </div>
+        <div class="content">
+            <p>Hi <strong>${data.guestName}</strong>,</p>
+            <p>Thank you for registering for <strong>${data.eventTitle}</strong>!</p>
+            
+            <div class="ticket-box">
+                <p style="margin: 0 0 15px 0; color: #64748b; font-size: 14px;">Show this at check-in</p>
+                <div class="qr-code">
+                    <img src="${data.qrCodeUrl}" width="150" height="150" alt="QR Code" />
+                </div>
+                <div class="code">${data.ticketCode}</div>
+            </div>
+            
+            <div class="details">
+                <p style="margin: 0 0 10px 0; font-weight: 600;">Event Details:</p>
+                <p style="margin: 5px 0;">📅 <strong>Date:</strong> ${data.eventDate}</p>
+                <p style="margin: 5px 0;">📍 <strong>Location:</strong> ${data.eventLocation}</p>
+            </div>
+            
+            <p style="color: #64748b; font-size: 14px;">Please save this email or take a screenshot. You'll need to show the QR code at check-in.</p>
+        </div>
+        <div class="footer">
+            <p>Sent via GrabMyPass</p>
+        </div>
+    </div>
+</body>
+</html>`;
+};
+
+// Replace placeholders in template
+const replacePlaceholders = (template: string, data: Record<string, string>): string => {
+    let result = template;
+    Object.entries(data).forEach(([key, value]) => {
+        const regex = new RegExp(`{{${key}}}`, 'g');
+        result = result.replace(regex, value || '');
+    });
+    return result;
+};
+
+// Format date nicely
+const formatEventDate = (date: Date | string | null): string => {
+    if (!date) return 'Date TBD';
+    const d = new Date(date);
+    return d.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+};
+
+// Generate short ticket code from hash
+const generateTicketCode = (hash: string): string => {
+    return `TKT-${hash.substring(0, 8).toUpperCase()}`;
 };
 
 const emailWorker = new Worker('email-queue', async (job) => {
-    try {
-        const { eventHostId, recipientEmail, ticketData, eventDetails } = job.data;
+    console.log(`Processing email job ${job.id}: ${job.name}`);
 
-        // 1. Fetch Host SMTP Config
-        // We need a DB connection here if it's a standalone process, 
-        // but assuming this runs in the same process or DB is connected.
+    try {
+        // Ensure DB connection
         if (mongoose.connection.readyState === 0) {
-            // Connect if not connected (basic handling)
             await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/grabmypass');
         }
 
-        const host = await User.findById(eventHostId);
-        if (!host || !host.smtpConfig) throw new Error("Host SMTP not found");
+        if (job.name === 'send-ticket') {
+            const { eventHostId, recipientEmail, ticketData, eventDetails } = job.data;
 
-        // 2. Decrypt Credentials
-        // Our util expects { iv, content }, but our model has { authUser: 'enc', authPass: 'enc', iv: 'common_iv' }?
-        // The implementation plan model had: { user: String, pass: String, iv: String }
-        // So 'user' is encrypted content, 'pass' is encrypted content. 
-        // They likely share an IV or have separate IVs. 
-        // If they share an IV (less secure but common in simple designs), we use host.smtpConfig.iv
+            // Fetch the full event with template references
+            const event = await Event.findById(eventDetails._id || eventDetails.id);
+            const host = await User.findById(eventHostId);
 
-        const decryptedUser = decrypt({ iv: host.smtpConfig.iv!, content: host.smtpConfig.user! });
-        const decryptedPass = decrypt({ iv: host.smtpConfig.iv!, content: host.smtpConfig.pass! });
+            if (!host) {
+                throw new Error('Event host not found');
+            }
 
-        // 3. Create Transporter
-        const transporter = nodemailer.createTransport({
-            host: host.smtpConfig.host,
-            port: host.smtpConfig.port,
-            secure: host.smtpConfig.secure,
-            auth: {
-                user: decryptedUser,
-                pass: decryptedPass,
-            },
-        });
+            // Check if confirmation emails are enabled
+            if (event?.sendConfirmationEmail === false) {
+                console.log(`Confirmation emails disabled for event ${event.title}`);
+                return;
+            }
 
-        // 4. Render Email HTML
-        const emailHtml = renderTicketEmail({ ticketData, eventDetails });
+            // Prepare placeholder data
+            const ticketCode = generateTicketCode(ticketData.qrCodeHash);
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${ticketData.qrCodeHash}`;
 
-        // 5. Send Email
-        await transporter.sendMail({
-            from: `"${eventDetails.title}" <${decryptedUser}>`,
-            to: recipientEmail,
-            subject: `Your Ticket for ${eventDetails.title}`,
-            html: emailHtml,
-        });
+            const placeholderData: Record<string, string> = {
+                guest_name: ticketData.guestName || 'Guest',
+                guest_email: ticketData.guestEmail || recipientEmail,
+                event_title: eventDetails.title || 'Event',
+                event_date: formatEventDate(eventDetails.date),
+                event_time: eventDetails.date ? new Date(eventDetails.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 'TBD',
+                event_location: eventDetails.location || 'Location TBD',
+                event_description: eventDetails.description || '',
+                ticket_code: ticketCode,
+                qr_code_url: qrCodeUrl,
+                event_link: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/e/${eventDetails.slug}`,
+                host_name: host.name || host.username || 'Event Host',
+                host_email: host.email || ''
+            };
 
-        console.log(`Email sent to ${recipientEmail} for event ${eventDetails.title}`);
+            // Get email content
+            let emailHtml: string;
+            let emailSubject: string;
+            let templateName: string | undefined;
 
-    } catch (error) {
-        console.error(`Failed to send email job ${job.id}:`, error);
+            if (event?.emailTemplateId) {
+                // Use custom template
+                const template = await EmailTemplate.findById(event.emailTemplateId);
+                if (template) {
+                    emailHtml = replacePlaceholders(template.body, placeholderData);
+                    emailSubject = replacePlaceholders(template.subject, placeholderData);
+                    templateName = template.name;
+                } else {
+                    // Fallback to default
+                    emailHtml = generateDefaultEmailHtml({
+                        guestName: placeholderData.guest_name,
+                        eventTitle: placeholderData.event_title,
+                        eventDate: placeholderData.event_date,
+                        eventLocation: placeholderData.event_location,
+                        ticketCode: placeholderData.ticket_code,
+                        qrCodeUrl: placeholderData.qr_code_url
+                    });
+                    emailSubject = `🎉 Your ticket for ${placeholderData.event_title}`;
+                }
+            } else {
+                // Use default template
+                emailHtml = generateDefaultEmailHtml({
+                    guestName: placeholderData.guest_name,
+                    eventTitle: placeholderData.event_title,
+                    eventDate: placeholderData.event_date,
+                    eventLocation: placeholderData.event_location,
+                    ticketCode: placeholderData.ticket_code,
+                    qrCodeUrl: placeholderData.qr_code_url
+                });
+                emailSubject = `🎉 Your ticket for ${placeholderData.event_title}`;
+            }
+
+            // Try to send via Gmail OAuth first
+            const emailAccount = await EmailAccount.findOne({
+                userId: eventHostId,
+                isActive: true,
+                provider: 'gmail'
+            });
+
+            let emailSent = false;
+            let fromEmail = '';
+
+            if (emailAccount) {
+                // Send via Gmail OAuth
+                try {
+                    const oauth2Client = new google.auth.OAuth2(
+                        process.env.GOOGLE_EMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+                        process.env.GOOGLE_EMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
+                        `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/email/gmail/callback`
+                    );
+
+                    oauth2Client.setCredentials({
+                        access_token: emailAccount.accessToken,
+                        refresh_token: emailAccount.refreshToken
+                    });
+
+                    // Refresh token if needed
+                    const { credentials } = await oauth2Client.refreshAccessToken();
+                    if (credentials.access_token !== emailAccount.accessToken) {
+                        emailAccount.accessToken = credentials.access_token!;
+                        await emailAccount.save();
+                    }
+
+                    const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
+
+                    // Build email with attachment option
+                    const boundary = `boundary_${Date.now()}`;
+                    let rawEmail = '';
+
+                    // Check if we should attach ticket
+                    if (event?.attachTicket && event?.ticketTemplateId) {
+                        // For now, we'll just include QR in the email body
+                        // Full ticket generation with canvas would require additional setup
+                        rawEmail = Buffer.from(
+                            `From: ${emailAccount.email}\r\n` +
+                            `To: ${recipientEmail}\r\n` +
+                            `Subject: ${emailSubject}\r\n` +
+                            `MIME-Version: 1.0\r\n` +
+                            `Content-Type: text/html; charset=utf-8\r\n\r\n` +
+                            emailHtml
+                        ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                    } else {
+                        rawEmail = Buffer.from(
+                            `From: ${emailAccount.email}\r\n` +
+                            `To: ${recipientEmail}\r\n` +
+                            `Subject: ${emailSubject}\r\n` +
+                            `MIME-Version: 1.0\r\n` +
+                            `Content-Type: text/html; charset=utf-8\r\n\r\n` +
+                            emailHtml
+                        ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+                    }
+
+                    await gmail.users.messages.send({
+                        userId: 'me',
+                        requestBody: { raw: rawEmail }
+                    });
+
+                    fromEmail = emailAccount.email;
+                    emailSent = true;
+
+                    // Update email account stats
+                    emailAccount.emailsSent = (emailAccount.emailsSent || 0) + 1;
+                    emailAccount.lastUsed = new Date();
+                    await emailAccount.save();
+
+                    console.log(`Email sent via Gmail to ${recipientEmail}`);
+                } catch (gmailError) {
+                    console.error('Gmail send failed:', gmailError);
+                    // Will try SMTP fallback
+                }
+            }
+
+            // Fallback to SMTP if Gmail failed or not configured
+            if (!emailSent && host.smtpConfig?.host) {
+                try {
+                    const decryptedUser = decrypt({ iv: host.smtpConfig.iv!, content: host.smtpConfig.user! });
+                    const decryptedPass = decrypt({ iv: host.smtpConfig.iv!, content: host.smtpConfig.pass! });
+
+                    const transporter = nodemailer.createTransport({
+                        host: host.smtpConfig.host,
+                        port: host.smtpConfig.port,
+                        secure: host.smtpConfig.secure,
+                        auth: {
+                            user: decryptedUser,
+                            pass: decryptedPass,
+                        },
+                    });
+
+                    await transporter.sendMail({
+                        from: `"${eventDetails.title}" <${decryptedUser}>`,
+                        to: recipientEmail,
+                        subject: emailSubject,
+                        html: emailHtml,
+                    });
+
+                    fromEmail = decryptedUser;
+                    emailSent = true;
+                    console.log(`Email sent via SMTP to ${recipientEmail}`);
+                } catch (smtpError) {
+                    console.error('SMTP send failed:', smtpError);
+                }
+            }
+
+            // Log the email
+            await EmailLog.create({
+                userId: eventHostId,
+                eventId: eventDetails._id || eventDetails.id,
+                ticketId: ticketData._id,
+                type: 'registration',
+                fromEmail: fromEmail || 'system@grabmypass.com',
+                toEmail: recipientEmail,
+                toName: ticketData.guestName,
+                subject: emailSubject,
+                templateId: event?.emailTemplateId,
+                templateName: templateName,
+                status: emailSent ? 'sent' : 'failed',
+                errorMessage: emailSent ? undefined : 'No email provider configured or all providers failed',
+                eventTitle: eventDetails.title,
+                ticketCode: ticketCode,
+                sentAt: new Date()
+            });
+
+            if (!emailSent) {
+                console.warn(`No email provider available for host ${eventHostId}`);
+            }
+        }
+
+    } catch (error: any) {
+        console.error(`Failed to process email job ${job.id}:`, error);
+
+        // Log failed email
+        try {
+            if (job.data?.eventHostId) {
+                await EmailLog.create({
+                    userId: job.data.eventHostId,
+                    eventId: job.data.eventDetails?._id,
+                    type: job.name === 'send-ticket' ? 'registration' : 'custom',
+                    fromEmail: 'system',
+                    toEmail: job.data.recipientEmail || 'unknown',
+                    toName: job.data.ticketData?.guestName,
+                    subject: `Email for ${job.data.eventDetails?.title || 'event'}`,
+                    status: 'failed',
+                    errorMessage: error.message,
+                    eventTitle: job.data.eventDetails?.title
+                });
+            }
+        } catch (logError) {
+            console.error('Failed to log email error:', logError);
+        }
+
         throw error;
     }
 
 }, {
     connection: {
-        host: process.env.REDIS_HOST,
+        host: process.env.REDIS_HOST || 'localhost',
         port: parseInt(process.env.REDIS_PORT || '6379'),
         password: process.env.REDIS_PASSWORD,
-        tls: { rejectUnauthorized: false }
+        ...(process.env.REDIS_TLS === 'true' && { tls: { rejectUnauthorized: false } })
     }
+});
+
+emailWorker.on('completed', (job) => {
+    console.log(`Email job ${job.id} completed successfully`);
+});
+
+emailWorker.on('failed', (job, err) => {
+    console.error(`Email job ${job?.id} failed:`, err.message);
 });
 
 export default emailWorker;

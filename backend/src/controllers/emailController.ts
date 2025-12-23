@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { google } from 'googleapis';
 import { EmailAccount } from '../models/EmailAccount';
 import { EmailTemplate } from '../models/EmailTemplate';
+import { EmailLog } from '../models/EmailLog';
 
 const oauth2Client = new google.auth.OAuth2(
     process.env.GOOGLE_EMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
@@ -251,12 +252,42 @@ export const sendTestEmail = async (req: Request, res: Response) => {
         account.lastUsed = new Date();
         await account.save();
 
+        // Log the email
+        await EmailLog.create({
+            userId,
+            type: 'test',
+            fromEmail: account.email,
+            toEmail: account.email,
+            toName: account.name,
+            subject,
+            status: 'sent',
+            sentAt: new Date()
+        });
+
         res.json({
             message: 'Test email sent successfully!',
             sentTo: account.email
         });
     } catch (error: any) {
         console.error('Send test email error:', error);
+
+        // Log failed email attempt
+        // @ts-ignore
+        const userId = req.user?.id;
+        const { accountId } = req.params;
+        const account = await EmailAccount.findOne({ _id: accountId, userId });
+        if (account) {
+            await EmailLog.create({
+                userId,
+                type: 'test',
+                fromEmail: account.email,
+                toEmail: account.email,
+                subject: 'Test Email',
+                status: 'failed',
+                errorMessage: error.message
+            });
+        }
+
         res.status(500).json({
             message: 'Failed to send test email',
             error: error.message
@@ -399,3 +430,105 @@ export const getPlaceholders = async (req: Request, res: Response) => {
 
     res.json(placeholders);
 };
+
+// ==================== EMAIL LOGS ====================
+
+// Get email logs
+export const getEmailLogs = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { page = 1, limit = 50, type, status, eventId, search } = req.query;
+
+        const query: any = { userId };
+
+        if (type) query.type = type;
+        if (status) query.status = status;
+        if (eventId) query.eventId = eventId;
+        if (search) {
+            query.$or = [
+                { toEmail: { $regex: search, $options: 'i' } },
+                { toName: { $regex: search, $options: 'i' } },
+                { subject: { $regex: search, $options: 'i' } },
+                { eventTitle: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const skip = (Number(page) - 1) * Number(limit);
+
+        const [logs, total] = await Promise.all([
+            EmailLog.find(query)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(Number(limit)),
+            EmailLog.countDocuments(query)
+        ]);
+
+        res.json({
+            logs,
+            pagination: {
+                page: Number(page),
+                limit: Number(limit),
+                total,
+                pages: Math.ceil(total / Number(limit))
+            }
+        });
+    } catch (error) {
+        console.error('Get email logs error:', error);
+        res.status(500).json({ message: 'Failed to fetch email logs' });
+    }
+};
+
+// Get email log stats
+export const getEmailLogStats = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+
+        const [total, sent, failed, byType] = await Promise.all([
+            EmailLog.countDocuments({ userId }),
+            EmailLog.countDocuments({ userId, status: 'sent' }),
+            EmailLog.countDocuments({ userId, status: 'failed' }),
+            EmailLog.aggregate([
+                { $match: { userId: require('mongoose').Types.ObjectId.createFromHexString(userId) } },
+                { $group: { _id: '$type', count: { $sum: 1 } } }
+            ])
+        ]);
+
+        const typeStats = byType.reduce((acc: any, item: any) => {
+            acc[item._id] = item.count;
+            return acc;
+        }, {});
+
+        res.json({
+            total,
+            sent,
+            failed,
+            successRate: total > 0 ? Math.round((sent / total) * 100) : 0,
+            byType: typeStats
+        });
+    } catch (error) {
+        console.error('Get email stats error:', error);
+        res.status(500).json({ message: 'Failed to fetch email stats' });
+    }
+};
+
+// Get single email log detail
+export const getEmailLogDetail = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { logId } = req.params;
+
+        const log = await EmailLog.findOne({ _id: logId, userId });
+
+        if (!log) {
+            return res.status(404).json({ message: 'Log not found' });
+        }
+
+        res.json(log);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch log detail' });
+    }
+};
+
