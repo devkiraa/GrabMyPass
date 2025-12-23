@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, MapPin, Loader2, CheckCircle2, AlertCircle, ArrowRight, Ticket, ChevronLeft } from 'lucide-react';
+import { Calendar, MapPin, Loader2, CheckCircle2, AlertCircle, ArrowRight, Ticket, ChevronLeft, Mail, Users } from 'lucide-react';
 import Link from 'next/link';
 
 export default function PublicEventPage() {
@@ -189,44 +189,204 @@ export default function PublicEventPage() {
         </div>
     );
 
-    // Success View
-    if (success || step === 3) return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-            <Card className="max-w-md w-full border-none shadow-2xl overflow-hidden">
-                <div className="bg-[#00CC68] h-32 flex items-center justify-center">
-                    <div className="bg-white/20 p-4 rounded-full backdrop-blur-sm">
-                        <CheckCircle2 className="w-12 h-12 text-white" />
+    // Event is closed
+    if (event.status === 'closed') return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+            <div className="max-w-md w-full">
+                <div className="bg-white rounded-3xl overflow-hidden shadow-2xl text-center">
+                    <div className="bg-gradient-to-r from-red-500 to-rose-500 px-8 py-10">
+                        <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full mx-auto flex items-center justify-center mb-4">
+                            <AlertCircle className="w-10 h-10 text-white" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">Registration Closed</h2>
+                    </div>
+                    <div className="px-8 py-8 space-y-4">
+                        <h3 className="text-xl font-bold text-slate-900">{event.title}</h3>
+                        <p className="text-slate-500">
+                            {event.maxRegistrations > 0
+                                ? 'This event has reached its maximum registration limit.'
+                                : 'Registration for this event has been closed by the host.'}
+                        </p>
+                        <div className="pt-4 space-y-3">
+                            <Link href="/" className="block">
+                                <Button className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl">
+                                    Browse Other Events
+                                </Button>
+                            </Link>
+                        </div>
                     </div>
                 </div>
-                <CardContent className="pt-8 text-center space-y-6 pb-10">
-                    <div className="space-y-2">
-                        <h2 className="text-2xl font-bold text-slate-900">You're In!</h2>
+                <p className="text-center text-slate-500 text-sm mt-6">
+                    Powered by <span className="font-semibold text-white">GrabMyPass</span>
+                </p>
+            </div>
+        </div>
+    );
+
+    // Event is draft (not published yet)
+    if (event.status === 'draft') return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
+            <div className="max-w-md w-full">
+                <div className="bg-white rounded-3xl overflow-hidden shadow-2xl text-center">
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-10">
+                        <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full mx-auto flex items-center justify-center mb-4">
+                            <AlertCircle className="w-10 h-10 text-white" />
+                        </div>
+                        <h2 className="text-2xl font-bold text-white">Coming Soon</h2>
+                    </div>
+                    <div className="px-8 py-8 space-y-4">
+                        <h3 className="text-xl font-bold text-slate-900">{event.title}</h3>
                         <p className="text-slate-500">
-                            Registration confirmed for <br /> <span className="font-semibold text-slate-900">{event.title}</span>
+                            This event is not yet open for registration. Please check back later!
+                        </p>
+                        <div className="pt-4 space-y-3">
+                            <Link href="/" className="block">
+                                <Button className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl">
+                                    Browse Other Events
+                                </Button>
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+                <p className="text-center text-slate-500 text-sm mt-6">
+                    Powered by <span className="font-semibold text-white">GrabMyPass</span>
+                </p>
+            </div>
+        </div>
+    );
+
+    // Success View
+    if (success || step === 3) return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+            {/* Animated background elements */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#00CC68]/20 rounded-full blur-[120px] animate-pulse" />
+                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
+                {/* Confetti dots */}
+                {[...Array(20)].map((_, i) => (
+                    <div
+                        key={i}
+                        className="absolute w-2 h-2 rounded-full animate-bounce"
+                        style={{
+                            left: `${Math.random() * 100}%`,
+                            top: `${Math.random() * 100}%`,
+                            backgroundColor: ['#00CC68', '#FFD700', '#FF6B6B', '#4ECDC4', '#A855F7'][i % 5],
+                            animationDelay: `${Math.random() * 2}s`,
+                            animationDuration: `${2 + Math.random() * 2}s`
+                        }}
+                    />
+                ))}
+            </div>
+
+            <div className="relative z-10 w-full max-w-md">
+                {/* Success Card - Ticket Style */}
+                <div className="bg-white rounded-3xl overflow-hidden shadow-2xl">
+                    {/* Header with checkmark */}
+                    <div className="bg-gradient-to-r from-[#00CC68] to-[#00a857] px-8 py-10 text-center relative">
+                        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+                        <div className="relative">
+                            <div className="w-20 h-20 bg-white rounded-full mx-auto flex items-center justify-center shadow-lg mb-4">
+                                <CheckCircle2 className="w-10 h-10 text-[#00CC68]" />
+                            </div>
+                            <h2 className="text-3xl font-black text-white mb-1">You're In! 🎉</h2>
+                            <p className="text-white/80 text-sm">Spot confirmed for this event</p>
+                        </div>
+                    </div>
+
+                    {/* Ticket tear line */}
+                    <div className="relative">
+                        <div className="absolute left-0 w-6 h-6 bg-slate-900 rounded-full -translate-x-1/2 -translate-y-1/2" />
+                        <div className="absolute right-0 w-6 h-6 bg-slate-900 rounded-full translate-x-1/2 -translate-y-1/2" />
+                        <div className="border-t-2 border-dashed border-slate-200 mx-6" />
+                    </div>
+
+                    {/* Event Details */}
+                    <div className="px-8 py-8">
+                        <div className="text-center mb-6">
+                            <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Event</p>
+                            <h3 className="text-2xl font-bold text-slate-900">{event.title}</h3>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                                <div className="w-12 h-12 bg-[#00CC68]/10 rounded-xl flex items-center justify-center">
+                                    <Mail className="w-5 h-5 text-[#00CC68]" />
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-xs text-slate-500 font-medium">Confirmation sent to</p>
+                                    <p className="font-semibold text-slate-900 truncate">{userEmail}</p>
+                                </div>
+                            </div>
+
+                            {event.date && (
+                                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                                    <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
+                                        <Calendar className="w-5 h-5 text-indigo-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-slate-500 font-medium">Event Date</p>
+                                        <p className="font-semibold text-slate-900">
+                                            {new Date(event.date).toLocaleDateString('en-IN', {
+                                                weekday: 'long',
+                                                day: 'numeric',
+                                                month: 'long',
+                                                year: 'numeric'
+                                            })}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {event.location && (
+                                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
+                                    <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
+                                        <MapPin className="w-5 h-5 text-amber-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-xs text-slate-500 font-medium">Venue</p>
+                                        <p className="font-semibold text-slate-900">{event.location}</p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-8 space-y-3">
+                            <Button
+                                className="w-full h-12 bg-[#00CC68] hover:bg-[#00b359] text-white font-bold rounded-xl shadow-lg shadow-[#00CC68]/25 transition-all hover:scale-[1.02]"
+                                onClick={() => window.location.reload()}
+                            >
+                                <Users className="w-4 h-4 mr-2" />
+                                Register Another Person
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                className="w-full h-12 border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50"
+                                onClick={() => window.location.href = '/'}
+                            >
+                                Back to Home
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 text-center">
+                        <p className="text-xs text-slate-400">
+                            🎟️ Your ticket details have been sent to your email
                         </p>
                     </div>
+                </div>
 
-                    <div className="bg-slate-50 p-4 rounded-lg border border-slate-100 text-sm text-left space-y-3">
-                        <div className="flex justify-between">
-                            <span className="text-slate-500">Sent to</span>
-                            <span className="font-medium text-slate-900">{userEmail}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-slate-500">Date</span>
-                            <span className="font-medium text-slate-900">{new Date(event.date).toLocaleDateString()}</span>
-                        </div>
-                    </div>
-
-                    <Button className="w-full bg-[#303030] hover:bg-black h-11" onClick={() => window.location.reload()}>
-                        Register Another Person
-                    </Button>
-                </CardContent>
-            </Card>
+                {/* Powered by badge */}
+                <p className="text-center text-slate-500 text-sm mt-6">
+                    Powered by <span className="font-semibold text-white">GrabMyPass</span>
+                </p>
+            </div>
         </div>
     );
 
     return (
-        <div className="min-h-screen flex flex-col lg:flex-row font-sans bg-white selection:bg-[#00CC68]/20">
+        <div className="min-h-screen flex flex-col lg:flex-row bg-white selection:bg-[#00CC68]/20">
 
             {/* Left Panel - Event Details (Sticky on Desktop) */}
             <div className="lg:w-5/12 bg-[#303030] text-white relative flex flex-col justify-between p-8 lg:p-12 lg:h-screen lg:sticky lg:top-0 overflow-hidden">
@@ -293,6 +453,23 @@ export default function PublicEventPage() {
                                         {event.price && event.price > 0 ? 'Please login to purchase.' : 'Enter your email to begin.'}
                                     </p>
                                 </div>
+
+                                {/* Spots remaining indicator */}
+                                {event.maxRegistrations > 0 && (
+                                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center">
+                                            <Users className="w-4 h-4 text-amber-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-semibold text-amber-900">
+                                                Limited spots available
+                                            </p>
+                                            <p className="text-xs text-amber-700">
+                                                Only {event.maxRegistrations} registrations allowed
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {event.price && event.price > 0 && (
                                     <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 flex items-center justify-between">
@@ -435,82 +612,145 @@ export default function PublicEventPage() {
                         <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
                             <div className="flex items-center gap-2 mb-6 cursor-pointer text-gray-400 hover:text-[#00CC68] transition-colors w-fit" onClick={() => setStep(1)}>
                                 <ChevronLeft className="w-4 h-4" />
-                                <span className="text-sm font-medium">Back to email</span>
+                                <span className="text-sm font-medium">Back</span>
                             </div>
 
                             <div className="space-y-2">
-                                <h2 className="text-3xl font-bold text-[#303030]">Final Details</h2>
-                                <p className="text-gray-500 text-lg">Complete your profile for the event.</p>
+                                <h2 className="text-3xl font-bold text-[#303030]">Complete Registration</h2>
+                                <p className="text-gray-500 text-lg">Fill in the details below.</p>
                             </div>
 
+                            {/* User Profile Card */}
+                            {(isLoggedIn && userProfile) ? (
+                                <div className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+                                    {userProfile.avatar ? (
+                                        <img
+                                            src={userProfile.avatar}
+                                            alt={userProfile.name || 'Profile'}
+                                            className="w-10 h-10 rounded-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-10 h-10 bg-[#00CC68] rounded-full flex items-center justify-center text-white font-bold">
+                                            {(userProfile.name || userEmail).charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                        {userProfile.name && (
+                                            <p className="font-semibold text-gray-900 truncate">{userProfile.name}</p>
+                                        )}
+                                        <p className="text-sm text-gray-500 truncate">{userEmail}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1 text-[#00CC68]">
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                        </svg>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3 p-4 bg-[#00CC68]/10 rounded-xl border border-[#00CC68]/20">
+                                    <div className="w-10 h-10 bg-[#00CC68] rounded-full flex items-center justify-center text-white font-bold">
+                                        {userEmail.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600">Registering as</p>
+                                        <p className="font-semibold text-gray-900">{userEmail}</p>
+                                    </div>
+                                </div>
+                            )}
+
                             <Card className="border-none shadow-xl bg-white overflow-hidden ring-1 ring-black/5">
-                                <div className="bg-gray-50 px-6 py-3 border-b border-gray-100 flex justify-between items-center">
-                                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Registered as</span>
-                                    <span className="text-sm font-medium text-[#00CC68] bg-[#00CC68]/10 px-3 py-1 rounded-full">{userEmail}</span>
+                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-100">
+                                    <div className="flex items-center gap-2">
+                                        <svg className="w-5 h-5 text-[#00CC68]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                        <span className="font-semibold text-gray-700">Registration Form</span>
+                                        <span className="ml-auto text-xs text-gray-400">{event.formSchema?.filter((f: any) => f.itemType !== 'section').length || event.formSchema?.length || 0} questions</span>
+                                    </div>
                                 </div>
                                 <CardContent className="p-8">
-                                    <form onSubmit={handleSubmit} className="space-y-8">
-                                        {event.formSchema?.map((field: any) => (
-                                            <div key={field.id} className="space-y-3 group">
-                                                <Label className="text-base font-semibold text-gray-700 group-hover:text-[#00CC68] transition-colors">
-                                                    {field.label} {field.required && <span className="text-red-500 ml-1">*</span>}
-                                                </Label>
+                                    <form onSubmit={handleSubmit} className="space-y-6">
+                                        {event.formSchema?.map((field: any) => {
+                                            // Handle Sections
+                                            if (field.itemType === 'section') {
+                                                return (
+                                                    <div key={field.id} className="pt-6 pb-2 border-t-2 border-indigo-500 mt-6 first:mt-0 first:pt-0 first:border-t-0">
+                                                        <h3 className="text-xl font-bold text-gray-900">{field.label}</h3>
+                                                        {field.sectionDescription && (
+                                                            <p className="text-sm text-gray-500 mt-1">{field.sectionDescription}</p>
+                                                        )}
+                                                    </div>
+                                                );
+                                            }
 
-                                                {field.type === 'textarea' ? (
-                                                    <textarea
-                                                        className="flex min-h-[120px] w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-base ring-offset-white placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00CC68] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:bg-white focus:bg-white"
-                                                        placeholder={field.placeholder || "Your answer..."}
-                                                        required={field.required}
-                                                        value={answers[field.label] || ''}
-                                                        onChange={(e) => handleInputChange(field.label, e.target.value)}
-                                                    />
-                                                ) : field.type === 'select' ? (
-                                                    <div className="relative">
-                                                        <select
-                                                            className="flex h-12 w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-base ring-offset-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00CC68] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:bg-white focus:bg-white appearance-none"
+                                            // Handle Questions
+                                            return (
+                                                <div key={field.id} className="space-y-3 group">
+                                                    <div>
+                                                        <Label className="text-base font-semibold text-gray-700 group-hover:text-[#00CC68] transition-colors">
+                                                            {field.label} {field.required && <span className="text-red-500 ml-1">*</span>}
+                                                        </Label>
+                                                        {field.description && (
+                                                            <p className="text-sm text-gray-500 mt-0.5">{field.description}</p>
+                                                        )}
+                                                    </div>
+
+                                                    {field.type === 'textarea' ? (
+                                                        <textarea
+                                                            className="flex min-h-[120px] w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-base ring-offset-white placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00CC68] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:bg-white focus:bg-white"
+                                                            placeholder={field.placeholder || "Your answer..."}
                                                             required={field.required}
                                                             value={answers[field.label] || ''}
                                                             onChange={(e) => handleInputChange(field.label, e.target.value)}
-                                                        >
-                                                            <option value="">Select an option...</option>
-                                                            {field.options?.map((opt: string) => (
-                                                                <option key={opt} value={opt}>{opt}</option>
-                                                            ))}
-                                                        </select>
-                                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                                                            <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                                        />
+                                                    ) : field.type === 'select' ? (
+                                                        <div className="relative">
+                                                            <select
+                                                                className="flex h-12 w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-base ring-offset-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00CC68] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:bg-white focus:bg-white appearance-none"
+                                                                required={field.required}
+                                                                value={answers[field.label] || ''}
+                                                                onChange={(e) => handleInputChange(field.label, e.target.value)}
+                                                            >
+                                                                <option value="">Select an option...</option>
+                                                                {field.options?.map((opt: string) => (
+                                                                    <option key={opt} value={opt}>{opt}</option>
+                                                                ))}
+                                                            </select>
+                                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                                                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ) : field.type === 'radio' ? (
-                                                    <div className="space-y-3">
-                                                        {field.options?.map((opt: string) => (
-                                                            <label key={opt} className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-all ${answers[field.label] === opt ? 'border-[#00CC68] bg-[#00CC68]/5' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
-                                                                <input
-                                                                    type="radio"
-                                                                    name={field.id}
-                                                                    value={opt}
-                                                                    checked={answers[field.label] === opt}
-                                                                    onChange={(e) => handleInputChange(field.label, e.target.value)}
-                                                                    className="w-5 h-5 text-[#00CC68] border-gray-300 focus:ring-[#00CC68]"
-                                                                />
-                                                                <span className={`font-medium ${answers[field.label] === opt ? 'text-gray-900' : 'text-gray-700'}`}>
-                                                                    {opt}
-                                                                </span>
-                                                            </label>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <Input
-                                                        type={field.type}
-                                                        placeholder={field.placeholder || "Your answer..."}
-                                                        required={field.required}
-                                                        value={answers[field.label] || ''}
-                                                        onChange={(e) => handleInputChange(field.label, e.target.value)}
-                                                        className="h-12 px-4 text-base bg-gray-50 border-gray-200 hover:bg-white focus:bg-white transition-all"
-                                                    />
-                                                )}
-                                            </div>
-                                        ))}
+                                                    ) : field.type === 'radio' ? (
+                                                        <div className="space-y-3">
+                                                            {field.options?.map((opt: string) => (
+                                                                <label key={opt} className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-all ${answers[field.label] === opt ? 'border-[#00CC68] bg-[#00CC68]/5' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={field.id}
+                                                                        value={opt}
+                                                                        checked={answers[field.label] === opt}
+                                                                        onChange={(e) => handleInputChange(field.label, e.target.value)}
+                                                                        className="w-5 h-5 text-[#00CC68] border-gray-300 focus:ring-[#00CC68]"
+                                                                    />
+                                                                    <span className={`font-medium ${answers[field.label] === opt ? 'text-gray-900' : 'text-gray-700'}`}>
+                                                                        {opt}
+                                                                    </span>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <Input
+                                                            type={field.type}
+                                                            placeholder={field.placeholder || "Your answer..."}
+                                                            required={field.required}
+                                                            value={answers[field.label] || ''}
+                                                            onChange={(e) => handleInputChange(field.label, e.target.value)}
+                                                            className="h-12 px-4 text-base bg-gray-50 border-gray-200 hover:bg-white focus:bg-white transition-all"
+                                                        />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
 
                                         {error && (
                                             <div className="p-3 rounded-md bg-red-50 text-red-600 text-sm flex items-center">

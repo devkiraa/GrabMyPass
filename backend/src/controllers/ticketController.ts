@@ -13,6 +13,24 @@ export const registerTicket = async (req: Request, res: Response) => {
         const event = await Event.findById(eventId);
         if (!event) return res.status(404).json({ message: 'Event not found' });
 
+        // Check if event is closed
+        if (event.status === 'closed') {
+            return res.status(400).json({ message: 'Registration is closed for this event.' });
+        }
+
+        // Check registration limit
+        if (event.maxRegistrations && event.maxRegistrations > 0) {
+            const currentCount = await Ticket.countDocuments({ eventId });
+            if (currentCount >= event.maxRegistrations) {
+                // Auto-close the event
+                await Event.findByIdAndUpdate(eventId, { status: 'closed' });
+                return res.status(400).json({
+                    message: 'Registration is full. Maximum limit reached.',
+                    limitReached: true
+                });
+            }
+        }
+
         // Better extraction of name and email from formData using form schema
         let guestName = 'Guest';
         let guestEmail = email || 'No Email';

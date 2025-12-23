@@ -8,14 +8,18 @@ const EventSchema = new mongoose.Schema({
     location: { type: String },
     description: { type: String },
     price: { type: Number, default: 0 },
+    maxRegistrations: { type: Number, default: 0 }, // 0 = unlimited
     status: { type: String, enum: ['active', 'closed', 'draft'], default: 'draft' },
     // Dynamic Form Schema
     formSchema: [{
         id: String,
+        itemType: { type: String, enum: ['question', 'section'], default: 'question' },
         label: String,
-        type: { type: String, enum: ['text', 'textarea', 'email', 'number', 'select', 'checkbox', 'radio', 'date', 'file'] },
+        type: { type: String, enum: ['text', 'textarea', 'email', 'number', 'select', 'checkbox', 'radio', 'date', 'time', 'url', 'tel', 'file'] },
         required: Boolean,
         placeholder: String,
+        description: String,
+        sectionDescription: String, // For section type
         options: [String], // For select, radio
         validationRegex: String
     }],

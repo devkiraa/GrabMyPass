@@ -31,13 +31,14 @@ export default function CreateEventPage() {
         date: '',
         location: '',
         slug: '',
-        price: 0
+        price: 0,
+        maxRegistrations: 0 // 0 = unlimited
     });
 
     // Step 2: Form Builder
     const [questions, setQuestions] = useState<any[]>([
-        { id: 'q1', type: 'text', label: 'Full Name', required: true, placeholder: 'John Doe' },
-        { id: 'q2', type: 'email', label: 'Email Address', required: true, placeholder: 'john@example.com' }
+        { id: 'q1', itemType: 'question', type: 'text', label: 'Full Name', required: true, placeholder: 'John Doe' },
+        { id: 'q2', itemType: 'question', type: 'email', label: 'Email Address', required: true, placeholder: 'john@example.com' }
     ]);
 
     // Validations & Async
@@ -134,7 +135,8 @@ export default function CreateEventPage() {
                             date: draft.date ? new Date(draft.date).toISOString().slice(0, 16) : '',
                             location: draft.location || '',
                             slug: draft.slug,
-                            price: draft.price || 0
+                            price: draft.price || 0,
+                            maxRegistrations: draft.maxRegistrations || 0
                         });
                         if (draft.formSchema) setQuestions(draft.formSchema);
                         if (!draft.date) setNoDate(true);
@@ -456,6 +458,20 @@ export default function CreateEventPage() {
                                 className="bg-white"
                             />
                             <p className="text-xs text-slate-500">Set to 0 for free events.</p>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="maxRegistrations">Maximum Registrations</Label>
+                            <Input
+                                id="maxRegistrations"
+                                name="maxRegistrations"
+                                type="number"
+                                min="0"
+                                value={formData.maxRegistrations}
+                                onChange={handleInputChange}
+                                placeholder="0 (Unlimited)"
+                                className="bg-white"
+                            />
+                            <p className="text-xs text-slate-500">Set to 0 for unlimited. Form auto-closes when limit is reached.</p>
                         </div>
                     </div>
                 </div>
