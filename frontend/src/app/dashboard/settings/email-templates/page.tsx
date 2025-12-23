@@ -13,18 +13,14 @@ import {
     CheckCircle2,
     Edit,
     Trash2,
-    Copy,
     FileText,
     Star,
-    X
+    Monitor,
+    Smartphone,
+    Save,
+    X,
+    Eye
 } from 'lucide-react';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
 
 interface EmailTemplate {
     _id: string;
@@ -42,14 +38,33 @@ interface Placeholder {
     description: string;
 }
 
+// Sample placeholder values for preview
+const sampleData: Record<string, string> = {
+    '{{guest_name}}': 'John Doe',
+    '{{guest_email}}': 'john@example.com',
+    '{{event_title}}': 'Tech Conference 2024',
+    '{{event_date}}': 'December 25, 2024 at 10:00 AM',
+    '{{event_time}}': '10:00 AM',
+    '{{event_location}}': 'Convention Center, Main Hall',
+    '{{event_description}}': 'Join us for an exciting tech conference...',
+    '{{ticket_code}}': 'TKT-ABC123',
+    '{{qr_code_url}}': 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TKT-ABC123',
+    '{{event_link}}': 'https://grabmypass.com/events/tech-conf-2024',
+    '{{host_name}}': 'Event Host',
+    '{{host_email}}': 'host@example.com'
+};
+
 export default function EmailTemplatesPage() {
     const [loading, setLoading] = useState(true);
     const [templates, setTemplates] = useState<EmailTemplate[]>([]);
     const [placeholders, setPlaceholders] = useState<Placeholder[]>([]);
-    const [dialogOpen, setDialogOpen] = useState(false);
-    const [editingTemplate, setEditingTemplate] = useState<EmailTemplate | null>(null);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
+
+    // Editor state
+    const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+    const [isCreating, setIsCreating] = useState(false);
+    const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop');
 
     // Form state
     const [formData, setFormData] = useState({
@@ -99,8 +114,9 @@ export default function EmailTemplatesPage() {
         }
     };
 
-    const openCreateDialog = () => {
-        setEditingTemplate(null);
+    const startCreating = () => {
+        setSelectedTemplate(null);
+        setIsCreating(true);
         setFormData({
             name: '',
             subject: '',
@@ -108,11 +124,11 @@ export default function EmailTemplatesPage() {
             type: 'registration',
             isDefault: false
         });
-        setDialogOpen(true);
     };
 
-    const openEditDialog = (template: EmailTemplate) => {
-        setEditingTemplate(template);
+    const selectTemplate = (template: EmailTemplate) => {
+        setSelectedTemplate(template);
+        setIsCreating(false);
         setFormData({
             name: template.name,
             subject: template.subject,
@@ -120,20 +136,33 @@ export default function EmailTemplatesPage() {
             type: template.type,
             isDefault: template.isDefault
         });
-        setDialogOpen(true);
+    };
+
+    const cancelEdit = () => {
+        setSelectedTemplate(null);
+        setIsCreating(false);
+        setFormData({
+            name: '',
+            subject: '',
+            body: '',
+            type: 'registration',
+            isDefault: false
+        });
     };
 
     const getDefaultBody = () => `<!DOCTYPE html>
 <html>
 <head>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; margin: 0; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
-        .content { padding: 30px; }
+        .header h1 { margin: 0; font-size: 24px; }
+        .content { padding: 30px; color: #333; }
         .ticket-code { background: #f1f5f9; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; }
         .code { font-size: 28px; font-weight: bold; color: #4F46E5; letter-spacing: 4px; }
         .footer { padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px; }
+        .btn { display: inline-block; background: #4F46E5; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -156,28 +185,36 @@ export default function EmailTemplatesPage() {
                 <li>📍 Location: {{event_location}}</li>
             </ul>
             
-            <p>Please save this email or take a screenshot of your ticket code. You'll need to show it at the event for check-in.</p>
+            <p>Please save this email or take a screenshot of your ticket code. You'll need to show it at check-in.</p>
+            
+            <p style="text-align: center; margin-top: 30px;">
+                <a href="{{event_link}}" class="btn">View Event Details</a>
+            </p>
         </div>
         <div class="footer">
-            <p>Sent via GrabMyPass</p>
+            <p>Sent via GrabMyPass • Event hosted by {{host_name}}</p>
         </div>
     </div>
 </body>
 </html>`;
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
+        if (!formData.name || !formData.subject || !formData.body) {
+            setMessage({ type: 'error', text: 'Please fill in all required fields' });
+            return;
+        }
+
         setSaving(true);
         setMessage({ type: '', text: '' });
 
         const token = localStorage.getItem('auth_token');
-        const url = editingTemplate
-            ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/email/templates/${editingTemplate._id}`
+        const url = selectedTemplate
+            ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/email/templates/${selectedTemplate._id}`
             : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/email/templates`;
 
         try {
             const res = await fetch(url, {
-                method: editingTemplate ? 'PATCH' : 'POST',
+                method: selectedTemplate ? 'PATCH' : 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -188,9 +225,12 @@ export default function EmailTemplatesPage() {
             const data = await res.json();
 
             if (res.ok) {
-                setMessage({ type: 'success', text: editingTemplate ? 'Template updated!' : 'Template created!' });
-                setDialogOpen(false);
+                setMessage({ type: 'success', text: selectedTemplate ? 'Template updated!' : 'Template created!' });
                 fetchTemplates();
+                if (!selectedTemplate) {
+                    setSelectedTemplate(data);
+                    setIsCreating(false);
+                }
             } else {
                 setMessage({ type: 'error', text: data.message || 'Failed to save template' });
             }
@@ -215,6 +255,9 @@ export default function EmailTemplatesPage() {
             );
             if (res.ok) {
                 setMessage({ type: 'success', text: 'Template deleted' });
+                if (selectedTemplate?._id === templateId) {
+                    cancelEdit();
+                }
                 fetchTemplates();
             }
         } catch (err) {
@@ -224,10 +267,26 @@ export default function EmailTemplatesPage() {
 
     const insertPlaceholder = (placeholder: string) => {
         const textarea = document.getElementById('body') as HTMLTextAreaElement;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const newBody = formData.body.substring(0, start) + placeholder + formData.body.substring(end);
-        setFormData({ ...formData, body: newBody });
+        if (textarea) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const newBody = formData.body.substring(0, start) + placeholder + formData.body.substring(end);
+            setFormData({ ...formData, body: newBody });
+            // Restore cursor position
+            setTimeout(() => {
+                textarea.focus();
+                textarea.setSelectionRange(start + placeholder.length, start + placeholder.length);
+            }, 0);
+        }
+    };
+
+    // Replace placeholders with sample data for preview
+    const getPreviewHtml = () => {
+        let html = formData.body;
+        Object.entries(sampleData).forEach(([key, value]) => {
+            html = html.replace(new RegExp(key.replace(/[{}]/g, '\\$&'), 'g'), value);
+        });
+        return html;
     };
 
     const typeColors: Record<string, string> = {
@@ -237,6 +296,8 @@ export default function EmailTemplatesPage() {
         cancellation: 'bg-red-100 text-red-700',
         custom: 'bg-purple-100 text-purple-700'
     };
+
+    const showEditor = selectedTemplate || isCreating;
 
     return (
         <div className="space-y-6">
@@ -251,9 +312,11 @@ export default function EmailTemplatesPage() {
                         <p className="text-slate-500">Create reusable email templates with placeholders</p>
                     </div>
                 </div>
-                <Button onClick={openCreateDialog} className="bg-indigo-600 hover:bg-indigo-700">
-                    <Plus className="w-4 h-4 mr-2" /> New Template
-                </Button>
+                {!showEditor && (
+                    <Button onClick={startCreating} className="bg-indigo-600 hover:bg-indigo-700">
+                        <Plus className="w-4 h-4 mr-2" /> New Template
+                    </Button>
+                )}
             </div>
 
             {/* Messages */}
@@ -265,179 +328,275 @@ export default function EmailTemplatesPage() {
                 </div>
             )}
 
-            {/* Templates Grid */}
             {loading ? (
                 <div className="flex justify-center py-12">
                     <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
                 </div>
-            ) : templates.length === 0 ? (
-                <Card>
-                    <CardContent className="py-12 text-center">
-                        <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-                        <h3 className="font-semibold text-slate-900 mb-2">No templates yet</h3>
-                        <p className="text-slate-500 text-sm mb-4">
-                            Create your first email template to send personalized confirmation emails
-                        </p>
-                        <Button onClick={openCreateDialog}>
-                            <Plus className="w-4 h-4 mr-2" /> Create Template
-                        </Button>
-                    </CardContent>
-                </Card>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {templates.map((template) => (
-                        <Card key={template._id} className="hover:shadow-md transition-shadow">
-                            <CardHeader className="pb-3">
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <CardTitle className="text-lg">{template.name}</CardTitle>
-                                        {template.isDefault && (
-                                            <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                                        )}
+            ) : !showEditor ? (
+                /* Template List View */
+                templates.length === 0 ? (
+                    <Card>
+                        <CardContent className="py-12 text-center">
+                            <FileText className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                            <h3 className="font-semibold text-slate-900 mb-2">No templates yet</h3>
+                            <p className="text-slate-500 text-sm mb-4">
+                                Create your first email template to send personalized confirmation emails
+                            </p>
+                            <Button onClick={startCreating}>
+                                <Plus className="w-4 h-4 mr-2" /> Create Template
+                            </Button>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {templates.map((template) => (
+                            <Card
+                                key={template._id}
+                                className="hover:shadow-md transition-shadow cursor-pointer group"
+                                onClick={() => selectTemplate(template)}
+                            >
+                                <CardHeader className="pb-3">
+                                    <div className="flex items-start justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <CardTitle className="text-lg">{template.name}</CardTitle>
+                                            {template.isDefault && (
+                                                <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                                            )}
+                                        </div>
+                                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${typeColors[template.type]}`}>
+                                            {template.type}
+                                        </span>
                                     </div>
-                                    <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${typeColors[template.type]}`}>
-                                        {template.type}
-                                    </span>
+                                    <CardDescription className="line-clamp-1">
+                                        Subject: {template.subject}
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex items-center gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-1"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                selectTemplate(template);
+                                            }}
+                                        >
+                                            <Edit className="w-4 h-4 mr-1" /> Edit
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                deleteTemplate(template._id);
+                                            }}
+                                            className="text-slate-400 hover:text-red-500"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )
+            ) : (
+                /* Editor View with Preview */
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* Left: Editor */}
+                    <div className="space-y-6">
+                        <Card>
+                            <CardHeader className="pb-4">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle>
+                                        {isCreating ? 'Create New Template' : `Edit: ${selectedTemplate?.name}`}
+                                    </CardTitle>
+                                    <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                                        <X className="w-4 h-4" />
+                                    </Button>
                                 </div>
-                                <CardDescription className="line-clamp-1">
-                                    Subject: {template.subject}
-                                </CardDescription>
                             </CardHeader>
-                            <CardContent>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="name">Template Name *</Label>
+                                        <Input
+                                            id="name"
+                                            value={formData.name}
+                                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                            placeholder="e.g., Event Registration"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="type">Template Type</Label>
+                                        <select
+                                            id="type"
+                                            value={formData.type}
+                                            onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                            className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
+                                        >
+                                            <option value="registration">Registration Confirmation</option>
+                                            <option value="reminder">Event Reminder</option>
+                                            <option value="update">Event Update</option>
+                                            <option value="cancellation">Cancellation Notice</option>
+                                            <option value="custom">Custom</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="subject">Email Subject *</Label>
+                                    <Input
+                                        id="subject"
+                                        value={formData.subject}
+                                        onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                                        placeholder="e.g., 🎉 You're registered for {{event_title}}!"
+                                    />
+                                </div>
+
+                                {/* Placeholders */}
+                                <div className="space-y-2">
+                                    <Label>Insert Placeholder</Label>
+                                    <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50 rounded-lg max-h-24 overflow-y-auto">
+                                        {placeholders.map((p) => (
+                                            <button
+                                                key={p.key}
+                                                type="button"
+                                                onClick={() => insertPlaceholder(p.key)}
+                                                className="px-2 py-1 text-xs bg-white border border-slate-200 rounded hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
+                                                title={p.description}
+                                            >
+                                                {p.key}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="body">Email Body (HTML) *</Label>
+                                    <textarea
+                                        id="body"
+                                        value={formData.body}
+                                        onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                                        className="w-full h-72 px-3 py-2 rounded-md border border-slate-200 text-sm font-mono resize-none"
+                                        placeholder="<html>...</html>"
+                                    />
+                                </div>
+
                                 <div className="flex items-center gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => openEditDialog(template)}
-                                        className="flex-1"
-                                    >
-                                        <Edit className="w-4 h-4 mr-1" /> Edit
+                                    <input
+                                        type="checkbox"
+                                        id="isDefault"
+                                        checked={formData.isDefault}
+                                        onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
+                                        className="rounded border-slate-300 text-indigo-600"
+                                    />
+                                    <Label htmlFor="isDefault" className="font-normal">
+                                        Set as default template for {formData.type} emails
+                                    </Label>
+                                </div>
+
+                                <div className="flex gap-3 pt-4 border-t">
+                                    <Button variant="outline" onClick={cancelEdit} className="flex-1">
+                                        Cancel
                                     </Button>
                                     <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => deleteTemplate(template._id)}
-                                        className="text-slate-400 hover:text-red-500"
+                                        onClick={handleSubmit}
+                                        disabled={saving}
+                                        className="flex-1 bg-indigo-600 hover:bg-indigo-700"
                                     >
-                                        <Trash2 className="w-4 h-4" />
+                                        {saving ? (
+                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+                                        ) : (
+                                            <><Save className="w-4 h-4 mr-2" /> {selectedTemplate ? 'Update' : 'Create'} Template</>
+                                        )}
                                     </Button>
                                 </div>
                             </CardContent>
                         </Card>
-                    ))}
+                    </div>
+
+                    {/* Right: Preview */}
+                    <div className="space-y-4">
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Eye className="w-5 h-5 text-slate-500" />
+                                        <CardTitle className="text-lg">Live Preview</CardTitle>
+                                    </div>
+                                    <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-lg">
+                                        <button
+                                            onClick={() => setPreviewMode('desktop')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${previewMode === 'desktop'
+                                                    ? 'bg-white shadow-sm text-slate-900'
+                                                    : 'text-slate-500 hover:text-slate-700'
+                                                }`}
+                                        >
+                                            <Monitor className="w-4 h-4" />
+                                            Desktop
+                                        </button>
+                                        <button
+                                            onClick={() => setPreviewMode('mobile')}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${previewMode === 'mobile'
+                                                    ? 'bg-white shadow-sm text-slate-900'
+                                                    : 'text-slate-500 hover:text-slate-700'
+                                                }`}
+                                        >
+                                            <Smartphone className="w-4 h-4" />
+                                            Mobile
+                                        </button>
+                                    </div>
+                                </div>
+                                <CardDescription>
+                                    Subject: {formData.subject ? formData.subject.replace(/\{\{(\w+)\}\}/g, (_, key) => sampleData[`{{${key}}}`] || `{{${key}}}`) : 'No subject'}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div
+                                    className={`mx-auto bg-slate-100 rounded-lg overflow-hidden transition-all duration-300 ${previewMode === 'desktop' ? 'w-full' : 'w-[375px]'
+                                        }`}
+                                >
+                                    {/* Browser/Phone Frame */}
+                                    <div className={`${previewMode === 'mobile' ? 'pt-6 pb-4 px-2' : 'p-2'}`}>
+                                        {previewMode === 'mobile' && (
+                                            <div className="w-20 h-1 bg-slate-300 rounded-full mx-auto mb-3" />
+                                        )}
+                                        <div className="bg-white rounded-lg overflow-hidden shadow-lg">
+                                            {/* Email Header Bar */}
+                                            <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex items-center gap-2">
+                                                <div className="w-3 h-3 rounded-full bg-red-400" />
+                                                <div className="w-3 h-3 rounded-full bg-amber-400" />
+                                                <div className="w-3 h-3 rounded-full bg-green-400" />
+                                                <span className="text-xs text-slate-500 ml-2">inbox</span>
+                                            </div>
+                                            {/* Email Content */}
+                                            <div
+                                                className={`overflow-y-auto ${previewMode === 'mobile' ? 'max-h-[500px]' : 'max-h-[600px]'}`}
+                                            >
+                                                <iframe
+                                                    srcDoc={getPreviewHtml()}
+                                                    className="w-full border-0"
+                                                    style={{
+                                                        height: previewMode === 'mobile' ? '500px' : '600px',
+                                                        transform: previewMode === 'mobile' ? 'scale(0.9)' : 'none',
+                                                        transformOrigin: 'top center'
+                                                    }}
+                                                    title="Email Preview"
+                                                />
+                                            </div>
+                                        </div>
+                                        {previewMode === 'mobile' && (
+                                            <div className="w-10 h-10 bg-slate-200 rounded-full mx-auto mt-3" />
+                                        )}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 </div>
             )}
-
-            {/* Create/Edit Dialog */}
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>
-                            {editingTemplate ? 'Edit Template' : 'Create Email Template'}
-                        </DialogTitle>
-                        <DialogDescription>
-                            Design your email template with placeholders that will be replaced with actual data
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Template Name *</Label>
-                                <Input
-                                    id="name"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    placeholder="e.g., Event Registration"
-                                    required
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="type">Template Type</Label>
-                                <select
-                                    id="type"
-                                    value={formData.type}
-                                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                                    className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm"
-                                >
-                                    <option value="registration">Registration Confirmation</option>
-                                    <option value="reminder">Event Reminder</option>
-                                    <option value="update">Event Update</option>
-                                    <option value="cancellation">Cancellation Notice</option>
-                                    <option value="custom">Custom</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="subject">Email Subject *</Label>
-                            <Input
-                                id="subject"
-                                value={formData.subject}
-                                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                                placeholder="e.g., 🎉 You're registered for {{event_title}}!"
-                                required
-                            />
-                        </div>
-
-                        {/* Placeholders */}
-                        <div className="space-y-2">
-                            <Label>Available Placeholders</Label>
-                            <div className="flex flex-wrap gap-2 p-3 bg-slate-50 rounded-lg">
-                                {placeholders.map((p) => (
-                                    <button
-                                        key={p.key}
-                                        type="button"
-                                        onClick={() => insertPlaceholder(p.key)}
-                                        className="px-2 py-1 text-xs bg-white border border-slate-200 rounded hover:border-indigo-400 hover:bg-indigo-50 transition-colors"
-                                        title={p.description}
-                                    >
-                                        {p.key}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="body">Email Body (HTML) *</Label>
-                            <textarea
-                                id="body"
-                                value={formData.body}
-                                onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-                                className="w-full h-64 px-3 py-2 rounded-md border border-slate-200 text-sm font-mono"
-                                placeholder="<html>...</html>"
-                                required
-                            />
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                id="isDefault"
-                                checked={formData.isDefault}
-                                onChange={(e) => setFormData({ ...formData, isDefault: e.target.checked })}
-                                className="rounded border-slate-300 text-indigo-600"
-                            />
-                            <Label htmlFor="isDefault" className="font-normal">
-                                Set as default template for {formData.type} emails
-                            </Label>
-                        </div>
-
-                        <div className="flex gap-3 justify-end pt-4 border-t">
-                            <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={saving} className="bg-indigo-600 hover:bg-indigo-700">
-                                {saving ? (
-                                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
-                                ) : (
-                                    <>{editingTemplate ? 'Update' : 'Create'} Template</>
-                                )}
-                            </Button>
-                        </div>
-                    </form>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }
