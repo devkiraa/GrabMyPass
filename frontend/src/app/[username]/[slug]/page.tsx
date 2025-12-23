@@ -18,6 +18,7 @@ export default function PublicEventPage() {
     const [event, setEvent] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [checkingEmail, setCheckingEmail] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState('');
 
@@ -64,8 +65,10 @@ export default function PublicEventPage() {
             // Fetch user profile
             const userData = await fetchUserProfile(token);
             if (userData) {
-                // Auto-advance to step 2 since we now have their email
-                setStep(2);
+                // Check if already registered before advancing
+                // We'll set the email and let them proceed - the check will happen when they enter email step
+                // For Google login, we show step 1 with their profile where they click Continue
+                // The check happens when they click Continue
             }
 
             // Clean URL
@@ -117,13 +120,41 @@ export default function PublicEventPage() {
         setAnswers(prev => ({ ...prev, [label]: value }));
     };
 
-    const handleEmailSubmit = (e: React.FormEvent) => {
+    // Check if email is already registered for this event
+    const checkRegistrationStatus = async (email: string): Promise<boolean> => {
+        if (!event?._id) return false;
+
+        setCheckingEmail(true);
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/${event._id}/check-registration?email=${encodeURIComponent(email)}`
+            );
+            if (res.ok) {
+                const data = await res.json();
+                if (data.alreadyRegistered) {
+                    setError('You have already registered for this event with this email address.');
+                    return true;
+                }
+            }
+        } catch (e) {
+            console.error('Failed to check registration', e);
+        } finally {
+            setCheckingEmail(false);
+        }
+        return false;
+    };
+
+    const handleEmailSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!userEmail || !userEmail.includes('@')) {
             setError('Please enter a valid email address');
             return;
         }
         setError('');
+
+        // Check if already registered
+        const isAlreadyRegistered = await checkRegistrationStatus(userEmail);
+        if (isAlreadyRegistered) return;
 
         if (event.formSchema) {
             const emailField = event.formSchema.find((f: any) => f.type === 'email' || f.label.toLowerCase().includes('email'));
@@ -162,7 +193,13 @@ export default function PublicEventPage() {
                 setStep(3);
             } else {
                 const errData = await res.json();
-                setError(errData.message || 'Registration failed');
+                if (errData.alreadyRegistered) {
+                    setError('You have already registered for this event with this email address.');
+                } else if (errData.limitReached) {
+                    setError('Registration is full. This event has reached its maximum limit.');
+                } else {
+                    setError(errData.message || 'Registration failed');
+                }
             }
         } catch (err) {
             setError('Something went wrong. Please try again.');
@@ -171,9 +208,74 @@ export default function PublicEventPage() {
         }
     };
 
+    // Skeleton Loading State
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50">
-            <Loader2 className="w-8 h-8 animate-spin text-[#00CC68]" />
+        <div className="min-h-screen flex flex-col lg:flex-row bg-white">
+            {/* Left Panel Skeleton */}
+            <div className="lg:w-5/12 bg-[#303030] text-white p-8 lg:p-12 lg:h-screen lg:sticky lg:top-0">
+                <div className="space-y-6 animate-pulse">
+                    {/* Badge skeleton */}
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-white/10" />
+                        <div className="h-4 w-32 bg-white/10 rounded" />
+                    </div>
+
+                    {/* Title skeleton */}
+                    <div className="space-y-3">
+                        <div className="h-10 w-3/4 bg-white/10 rounded" />
+                        <div className="h-10 w-1/2 bg-white/10 rounded" />
+                    </div>
+
+                    {/* Details skeleton */}
+                    <div className="space-y-4 mt-8">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-white/10" />
+                            <div className="space-y-2 flex-1">
+                                <div className="h-3 w-16 bg-white/10 rounded" />
+                                <div className="h-4 w-48 bg-white/10 rounded" />
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-white/10" />
+                            <div className="space-y-2 flex-1">
+                                <div className="h-3 w-16 bg-white/10 rounded" />
+                                <div className="h-4 w-32 bg-white/10 rounded" />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Description skeleton */}
+                    <div className="pt-8 mt-8 border-t border-white/10 space-y-2">
+                        <div className="h-3 w-full bg-white/10 rounded" />
+                        <div className="h-3 w-4/5 bg-white/10 rounded" />
+                        <div className="h-3 w-3/5 bg-white/10 rounded" />
+                    </div>
+                </div>
+            </div>
+
+            {/* Right Panel Skeleton */}
+            <div className="flex-1 bg-[#FAFAFA] p-6 lg:p-24">
+                <div className="max-w-3xl mx-auto space-y-8 animate-pulse">
+                    {/* Header skeleton */}
+                    <div className="space-y-3">
+                        <div className="h-8 w-64 bg-gray-200 rounded" />
+                        <div className="h-5 w-48 bg-gray-200 rounded" />
+                    </div>
+
+                    {/* Card skeleton */}
+                    <div className="bg-white rounded-2xl p-8 shadow-lg space-y-6">
+                        <div className="space-y-2">
+                            <div className="h-4 w-24 bg-gray-200 rounded" />
+                            <div className="h-12 w-full bg-gray-100 rounded-lg" />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="h-4 w-32 bg-gray-200 rounded" />
+                            <div className="h-12 w-full bg-gray-100 rounded-lg" />
+                        </div>
+                        <div className="h-14 w-full bg-gray-200 rounded-lg" />
+                    </div>
+                </div>
+            </div>
         </div>
     );
 
@@ -550,10 +652,27 @@ export default function PublicEventPage() {
                                         )}
 
                                         <Button
-                                            onClick={() => setStep(2)}
+                                            onClick={async () => {
+                                                setError('');
+                                                const isAlreadyRegistered = await checkRegistrationStatus(userEmail);
+                                                if (!isAlreadyRegistered) {
+                                                    if (event.formSchema) {
+                                                        const emailField = event.formSchema.find((f: any) => f.type === 'email' || f.label.toLowerCase().includes('email'));
+                                                        if (emailField) {
+                                                            handleInputChange(emailField.label, userEmail);
+                                                        }
+                                                    }
+                                                    setStep(2);
+                                                }
+                                            }}
+                                            disabled={checkingEmail}
                                             className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:scale-[1.01]"
                                         >
-                                            Continue to Register <ArrowRight className="w-5 h-5 ml-2" />
+                                            {checkingEmail ? (
+                                                <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Checking...</>
+                                            ) : (
+                                                <>Continue to Register <ArrowRight className="w-5 h-5 ml-2" /></>
+                                            )}
                                         </Button>
                                     </div>
                                 ) : (
@@ -577,8 +696,16 @@ export default function PublicEventPage() {
                                                     <AlertCircle className="w-4 h-4 mr-2" /> {error}
                                                 </div>
                                             )}
-                                            <Button type="submit" className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:scale-[1.01]">
-                                                Continue <ArrowRight className="w-5 h-5 ml-2" />
+                                            <Button
+                                                type="submit"
+                                                disabled={checkingEmail}
+                                                className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:scale-[1.01]"
+                                            >
+                                                {checkingEmail ? (
+                                                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Checking...</>
+                                                ) : (
+                                                    <>Continue <ArrowRight className="w-5 h-5 ml-2" /></>
+                                                )}
                                             </Button>
                                         </form>
 

@@ -140,17 +140,17 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
                 username: username,
                 password: hashedPassword,
                 googleId: profile.id,
-                avatar: profile.picture, // Save Google Avatar
+                googleAvatar: profile.picture, // Store Google avatar separately
+                avatar: profile.picture, // Also set as default avatar
                 role: 'host' // Default role
             });
         } else {
-            // Update googleId and avatar if missing
-            let updates: any = {};
+            // Update googleId and googleAvatar (always keep in sync with Google)
+            let updates: any = {
+                googleAvatar: profile.picture // Always update Google avatar to keep it current
+            };
             if (!user.googleId) updates.googleId = profile.id;
-            // Always update avatar if it's currently from Google (matches old one) or if missing? 
-            // For now, let's only set it if it's missing to respect user changes, 
-            // OR if the user is logging in with Google we might want to sync their latest pic?
-            // Let's just set it if missing for now to be safe.
+            // Only set avatar if missing (respect user's custom avatar choice)
             if (!user.avatar) updates.avatar = profile.picture;
 
             if (Object.keys(updates).length > 0) {
@@ -281,7 +281,7 @@ export const getProfile = async (req: Request, res: Response) => {
     try {
         // @ts-ignore
         const userId = req.user.id;
-        const user = await User.findById(userId).select('-password');
+        const user = await User.findById(userId).select('-password -smtpConfig');
 
         if (!user) return res.status(404).json({ message: 'User not found' });
 

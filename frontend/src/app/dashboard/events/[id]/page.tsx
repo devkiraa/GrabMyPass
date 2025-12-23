@@ -158,8 +158,70 @@ export default function EventDetailPage() {
 
     if (loading) {
         return (
-            <div className="flex justify-center items-center h-96 text-indigo-600">
-                <Loader2 className="w-8 h-8 animate-spin" />
+            <div className="space-y-8 animate-pulse">
+                {/* Back button and title skeleton */}
+                <div>
+                    <div className="h-8 w-32 bg-slate-200 rounded mb-4" />
+                    <div className="h-8 w-64 bg-slate-200 rounded" />
+                    <div className="flex items-center gap-4 mt-3">
+                        <div className="h-4 w-32 bg-slate-100 rounded" />
+                        <div className="h-4 w-24 bg-slate-100 rounded" />
+                        <div className="h-5 w-16 bg-slate-100 rounded-full" />
+                    </div>
+                </div>
+
+                {/* Stats skeleton */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="bg-white p-4 rounded-lg border border-slate-200">
+                            <div className="flex justify-between">
+                                <div className="space-y-2">
+                                    <div className="h-4 w-24 bg-slate-100 rounded" />
+                                    <div className="h-7 w-16 bg-slate-200 rounded" />
+                                </div>
+                                <div className="h-8 w-8 bg-slate-100 rounded" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Form fields skeleton */}
+                <div className="bg-white rounded-lg border border-slate-200 p-6">
+                    <div className="h-5 w-28 bg-slate-200 rounded mb-2" />
+                    <div className="h-4 w-64 bg-slate-100 rounded mb-6" />
+                    <div className="grid grid-cols-3 gap-4">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="p-4 bg-slate-50 rounded-lg">
+                                <div className="h-3 w-12 bg-slate-200 rounded mb-2" />
+                                <div className="h-5 w-24 bg-slate-200 rounded" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Table skeleton */}
+                <div className="bg-white rounded-lg border border-slate-200">
+                    <div className="p-6 border-b border-slate-100 flex justify-between">
+                        <div>
+                            <div className="h-5 w-28 bg-slate-200 rounded mb-2" />
+                            <div className="h-4 w-48 bg-slate-100 rounded" />
+                        </div>
+                        <div className="flex gap-3">
+                            <div className="h-9 w-48 bg-slate-100 rounded" />
+                            <div className="h-9 w-28 bg-slate-100 rounded" />
+                        </div>
+                    </div>
+                    <div className="p-4">
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <div key={i} className="flex gap-4 py-3 border-b border-slate-50">
+                                <div className="h-4 w-8 bg-slate-100 rounded" />
+                                <div className="h-4 w-32 bg-slate-200 rounded" />
+                                <div className="h-4 w-40 bg-slate-100 rounded" />
+                                <div className="h-5 w-20 bg-slate-100 rounded-full ml-auto" />
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         );
     }

@@ -31,6 +31,23 @@ export const registerTicket = async (req: Request, res: Response) => {
             }
         }
 
+        // Check for duplicate registration if not allowed
+        if (!event.allowMultipleRegistrations) {
+            const { email: submittedEmail } = req.body;
+            if (submittedEmail) {
+                const existingTicket = await Ticket.findOne({
+                    eventId,
+                    guestEmail: submittedEmail.toLowerCase()
+                });
+                if (existingTicket) {
+                    return res.status(400).json({
+                        message: 'You have already registered for this event.',
+                        alreadyRegistered: true
+                    });
+                }
+            }
+        }
+
         // Better extraction of name and email from formData using form schema
         let guestName = 'Guest';
         let guestEmail = email || 'No Email';
@@ -193,5 +210,43 @@ export const getEventAttendees = async (req: Request, res: Response) => {
         res.status(200).json(attendees);
     } catch (error) {
         res.status(500).json({ message: 'Failed to fetch attendees', error });
+    }
+};
+
+// Check if email is already registered for an event
+export const checkRegistration = async (req: Request, res: Response) => {
+    try {
+        const { eventId } = req.params;
+        const { email } = req.query;
+
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+
+        const event = await Event.findById(eventId);
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+
+        // If multiple registrations are allowed, no need to check
+        if (event.allowMultipleRegistrations) {
+            return res.json({
+                alreadyRegistered: false,
+                allowMultiple: true
+            });
+        }
+
+        // Check if this email has already registered
+        const existingTicket = await Ticket.findOne({
+            eventId,
+            guestEmail: (email as string).toLowerCase()
+        });
+
+        res.json({
+            alreadyRegistered: !!existingTicket,
+            allowMultiple: false
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to check registration', error });
     }
 };

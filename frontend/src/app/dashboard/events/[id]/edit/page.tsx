@@ -27,9 +27,10 @@ export default function EditEventPage() {
         title: '',
         date: '',
         location: '',
-
         description: '',
         price: 0,
+        maxRegistrations: 0,
+        allowMultipleRegistrations: true,
         status: 'active',
         formSchema: [] as any[]
     });
@@ -61,6 +62,8 @@ export default function EditEventPage() {
                             location: event.location || '',
                             description: event.description || '',
                             price: event.price || 0,
+                            maxRegistrations: event.maxRegistrations || 0,
+                            allowMultipleRegistrations: event.allowMultipleRegistrations !== false,
                             status: event.status || 'active',
                             formSchema: event.formSchema || []
                         });
@@ -233,6 +236,52 @@ export default function EditEventPage() {
                                     className="flex min-h-[100px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 disabled:cursor-not-allowed disabled:opacity-50"
                                     placeholder="Describe your event..."
                                 />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="maxRegistrations">Maximum Registrations</Label>
+                                    <Input
+                                        id="maxRegistrations"
+                                        name="maxRegistrations"
+                                        type="number"
+                                        min="0"
+                                        value={formData.maxRegistrations}
+                                        onChange={handleChange}
+                                        placeholder="0 (Unlimited)"
+                                    />
+                                    <p className="text-xs text-slate-500">Set to 0 for unlimited.</p>
+                                </div>
+                            </div>
+
+                            {/* Multiple Registrations Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base cursor-pointer">
+                                        Allow Multiple Registrations
+                                    </Label>
+                                    <p className="text-xs text-slate-500">
+                                        {formData.allowMultipleRegistrations
+                                            ? 'Same email can register multiple times'
+                                            : 'Each email can only register once'}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={formData.allowMultipleRegistrations}
+                                    onClick={() => setFormData(prev => ({
+                                        ...prev,
+                                        allowMultipleRegistrations: !prev.allowMultipleRegistrations
+                                    }))}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.allowMultipleRegistrations ? 'bg-indigo-600' : 'bg-slate-300'
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.allowMultipleRegistrations ? 'translate-x-6' : 'translate-x-1'
+                                            }`}
+                                    />
+                                </button>
                             </div>
 
                             <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">

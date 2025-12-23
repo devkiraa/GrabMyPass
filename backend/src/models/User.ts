@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
     name: { type: String },
     password: { type: String, required: true }, // Added password field for Auth
     googleId: { type: String }, // For Google Auth
+    googleAvatar: { type: String }, // Google profile picture URL (stored separately)
     role: { type: String, enum: ['admin', 'host', 'helper'], default: 'host' },
     avatar: { type: String }, // URL or Base64
     banner: { type: String }, // URL or Base64 for profile banner

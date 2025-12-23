@@ -32,7 +32,8 @@ export default function CreateEventPage() {
         location: '',
         slug: '',
         price: 0,
-        maxRegistrations: 0 // 0 = unlimited
+        maxRegistrations: 0, // 0 = unlimited
+        allowMultipleRegistrations: true // Allow same email to register multiple times
     });
 
     // Step 2: Form Builder
@@ -77,7 +78,10 @@ export default function CreateEventPage() {
             try {
                 const token = localStorage.getItem('auth_token');
                 // Use the new check-slug endpoint
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/check-slug?slug=${formData.slug}`, {
+                // Pass excludeEventId if editing a draft to not block own slug
+                const draftIdFromUrl = new URLSearchParams(window.location.search).get('draftId');
+                const excludeParam = draftIdFromUrl ? `&excludeEventId=${draftIdFromUrl}` : '';
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/check-slug?slug=${formData.slug}${excludeParam}`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -136,7 +140,8 @@ export default function CreateEventPage() {
                             location: draft.location || '',
                             slug: draft.slug,
                             price: draft.price || 0,
-                            maxRegistrations: draft.maxRegistrations || 0
+                            maxRegistrations: draft.maxRegistrations || 0,
+                            allowMultipleRegistrations: draft.allowMultipleRegistrations !== false
                         });
                         if (draft.formSchema) setQuestions(draft.formSchema);
                         if (!draft.date) setNoDate(true);
@@ -472,6 +477,36 @@ export default function CreateEventPage() {
                                 className="bg-white"
                             />
                             <p className="text-xs text-slate-500">Set to 0 for unlimited. Form auto-closes when limit is reached.</p>
+                        </div>
+
+                        {/* Multiple Registrations Toggle */}
+                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
+                            <div className="space-y-0.5">
+                                <Label htmlFor="allowMultipleRegistrations" className="text-base cursor-pointer">
+                                    Allow Multiple Registrations
+                                </Label>
+                                <p className="text-xs text-slate-500">
+                                    {formData.allowMultipleRegistrations
+                                        ? 'Same email can register multiple times'
+                                        : 'Each email can only register once'}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                role="switch"
+                                aria-checked={formData.allowMultipleRegistrations}
+                                onClick={() => setFormData(prev => ({
+                                    ...prev,
+                                    allowMultipleRegistrations: !prev.allowMultipleRegistrations
+                                }))}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.allowMultipleRegistrations ? 'bg-indigo-600' : 'bg-slate-300'
+                                    }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.allowMultipleRegistrations ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
+                                />
+                            </button>
                         </div>
                     </div>
                 </div>

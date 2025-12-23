@@ -52,10 +52,16 @@ export const checkEventSlug = async (req: Request, res: Response) => {
     try {
         // @ts-ignore
         const userId = req.user.id;
-        const { slug } = req.query;
+        const { slug, excludeEventId } = req.query;
         if (!slug) return res.status(400).json({ message: 'Slug required' });
 
-        const existing = await Event.findOne({ hostId: userId, slug });
+        // Build query - exclude the current event when editing
+        const query: any = { hostId: userId, slug };
+        if (excludeEventId) {
+            query._id = { $ne: excludeEventId };
+        }
+
+        const existing = await Event.findOne(query);
         res.json({ available: !existing });
     } catch (error) {
         res.status(500).json({ message: 'Error checking slug', error });

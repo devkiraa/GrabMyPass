@@ -9,6 +9,7 @@ const EventSchema = new mongoose.Schema({
     description: { type: String },
     price: { type: Number, default: 0 },
     maxRegistrations: { type: Number, default: 0 }, // 0 = unlimited
+    allowMultipleRegistrations: { type: Boolean, default: true }, // Allow same person to register multiple times
     status: { type: String, enum: ['active', 'closed', 'draft'], default: 'draft' },
     // Dynamic Form Schema
     formSchema: [{

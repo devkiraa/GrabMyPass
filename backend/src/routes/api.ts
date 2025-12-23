@@ -1,6 +1,6 @@
 import express from 'express';
 import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug } from '../controllers/eventController';
-import { registerTicket, validateTicket, getEventAttendees } from '../controllers/ticketController';
+import { registerTicket, validateTicket, getEventAttendees, checkRegistration } from '../controllers/ticketController';
 import { verifyToken } from '../middleware/auth';
 import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController'; // Add import
 import { getPublicUserProfile } from '../controllers/userController';
@@ -31,6 +31,7 @@ apiRouter.put('/events/update/:id', verifyToken, updateEvent); // Also support P
 
 // Tickets (MUST be before :username/:slug to avoid conflicts)
 apiRouter.post('/events/:eventId/register', registerTicket);
+apiRouter.get('/events/:eventId/check-registration', checkRegistration); // Check if email already registered
 apiRouter.get('/events/:eventId/attendees', verifyToken, getEventAttendees);
 
 // Public Event Page (LAST - catch-all pattern)

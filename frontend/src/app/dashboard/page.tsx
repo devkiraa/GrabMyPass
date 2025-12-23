@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { DashboardSkeleton } from '@/components/ui/skeleton';
 import {
     Calendar,
     Plus,
@@ -13,7 +14,6 @@ import {
     Search,
     MoreHorizontal,
     MapPin,
-    Loader2
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -53,11 +53,7 @@ export default function Dashboard() {
         fetchDashboardData();
     }, []);
 
-    if (loading) return (
-        <div className="flex custom-h-screen items-center justify-center text-indigo-600">
-            <Loader2 className="w-10 h-10 animate-spin" />
-        </div>
-    );
+    if (loading) return <DashboardSkeleton />;
 
     return (
         <div className="space-y-8">
