@@ -161,11 +161,42 @@ export const validateTicket = async (req: Request, res: Response) => {
         // @ts-ignore
         const helperId = req.user.id; // Helper or Host
 
-        const ticket = await Ticket.findOne({ qrCodeHash: hash }).populate('eventId');
-        if (!ticket) return res.status(404).json({ message: 'Invalid Ticket' });
+        let ticket = null;
+
+        // Check if input is a ticket code (TKT-XXXXXXXX format)
+        if (hash.toUpperCase().startsWith('TKT-')) {
+            // Extract the short code (8 characters after TKT-)
+            const shortCode = hash.substring(4).toUpperCase();
+
+            // Search for ticket where qrCodeHash starts with this short code (case-insensitive)
+            ticket = await Ticket.findOne({
+                qrCodeHash: { $regex: `^${shortCode}`, $options: 'i' }
+            }).populate('eventId');
+        } else {
+            // Full hash lookup
+            ticket = await Ticket.findOne({ qrCodeHash: hash }).populate('eventId');
+
+            // Also try case-insensitive match
+            if (!ticket) {
+                ticket = await Ticket.findOne({
+                    qrCodeHash: { $regex: `^${hash}`, $options: 'i' }
+                }).populate('eventId');
+            }
+        }
+
+        if (!ticket) {
+            return res.status(404).json({
+                message: 'Invalid Ticket',
+                hint: 'Please scan the QR code or enter the full ticket code (e.g., TKT-XXXXXXXX)'
+            });
+        }
 
         if (ticket.status === 'checked-in') {
-            return res.status(400).json({ message: 'Ticket already checked in', checkedInAt: ticket.checkedInAt });
+            return res.status(400).json({
+                message: 'Ticket already checked in',
+                checkedInAt: ticket.checkedInAt,
+                guestName: ticket.guestName
+            });
         }
 
         // Authorization Check (Is user the host or an authorized helper?)
@@ -178,8 +209,19 @@ export const validateTicket = async (req: Request, res: Response) => {
         ticket.checkedInBy = helperId;
         await ticket.save();
 
-        res.status(200).json({ message: 'Check-in Successful', ticket });
+        res.status(200).json({
+            message: 'Check-in Successful',
+            ticket: {
+                _id: ticket._id,
+                guestName: ticket.guestName,
+                guestEmail: ticket.guestEmail,
+                status: ticket.status,
+                checkedInAt: ticket.checkedInAt,
+                ticketCode: `TKT-${ticket.qrCodeHash.substring(0, 8).toUpperCase()}`
+            }
+        });
     } catch (error) {
+        console.error('Ticket validation error:', error);
         res.status(500).json({ message: 'Validation failed', error });
     }
 };

@@ -4,6 +4,7 @@ import { EmailAccount } from '../models/EmailAccount';
 import { EmailTemplate } from '../models/EmailTemplate';
 import { EmailLog } from '../models/EmailLog';
 import { User } from '../models/User';
+import { generateTicketImage } from './ticketGenerator';
 
 // Generate default email HTML if no template selected
 const generateDefaultEmailHtml = (data: {
@@ -251,15 +252,81 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
 
         const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
-        // Build email
-        const rawEmail = Buffer.from(
-            `From: ${emailAccount.email}\r\n` +
-            `To: ${recipientEmail}\r\n` +
-            `Subject: ${emailSubject}\r\n` +
-            `MIME-Version: 1.0\r\n` +
-            `Content-Type: text/html; charset=utf-8\r\n\r\n` +
-            emailHtml
-        ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        // Generate ticket image if enabled
+        let ticketImageBuffer: Buffer | null = null;
+        if (eventDetails.attachTicket !== false && eventDetails.ticketTemplateId) {
+            console.log(`🎫 Generating ticket with template: ${eventDetails.ticketTemplateId}`);
+            ticketImageBuffer = await generateTicketImage({
+                templateId: eventDetails.ticketTemplateId,
+                guestName: placeholderData.guest_name,
+                eventTitle: placeholderData.event_title,
+                eventDate: placeholderData.event_date,
+                eventLocation: placeholderData.event_location,
+                ticketCode: placeholderData.ticket_code,
+                qrCodeData: ticketData.qrCodeHash
+            });
+        } else if (eventDetails.attachTicket !== false) {
+            // Generate default ticket even without template
+            console.log(`🎫 Generating default ticket`);
+            ticketImageBuffer = await generateTicketImage({
+                guestName: placeholderData.guest_name,
+                eventTitle: placeholderData.event_title,
+                eventDate: placeholderData.event_date,
+                eventLocation: placeholderData.event_location,
+                ticketCode: placeholderData.ticket_code,
+                qrCodeData: ticketData.qrCodeHash
+            });
+        }
+
+        // Build email (with or without attachment)
+        let rawEmail: string;
+
+        if (ticketImageBuffer) {
+            // MIME multipart email with attachment
+            const boundary = `boundary_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const ticketBase64 = ticketImageBuffer.toString('base64');
+
+            const mimeMessage = [
+                `From: ${emailAccount.email}`,
+                `To: ${recipientEmail}`,
+                `Subject: ${emailSubject}`,
+                `MIME-Version: 1.0`,
+                `Content-Type: multipart/mixed; boundary="${boundary}"`,
+                ``,
+                `--${boundary}`,
+                `Content-Type: text/html; charset=utf-8`,
+                `Content-Transfer-Encoding: 7bit`,
+                ``,
+                emailHtml,
+                ``,
+                `--${boundary}`,
+                `Content-Type: image/png; name="ticket.png"`,
+                `Content-Transfer-Encoding: base64`,
+                `Content-Disposition: attachment; filename="ticket.png"`,
+                ``,
+                ticketBase64,
+                ``,
+                `--${boundary}--`
+            ].join('\r\n');
+
+            rawEmail = Buffer.from(mimeMessage)
+                .toString('base64')
+                .replace(/\+/g, '-')
+                .replace(/\//g, '_')
+                .replace(/=+$/, '');
+
+            console.log(`📎 Email with ticket attachment prepared`);
+        } else {
+            // Simple HTML email without attachment
+            rawEmail = Buffer.from(
+                `From: ${emailAccount.email}\r\n` +
+                `To: ${recipientEmail}\r\n` +
+                `Subject: ${emailSubject}\r\n` +
+                `MIME-Version: 1.0\r\n` +
+                `Content-Type: text/html; charset=utf-8\r\n\r\n` +
+                emailHtml
+            ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        }
 
         await gmail.users.messages.send({
             userId: 'me',
