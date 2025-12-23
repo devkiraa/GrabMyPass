@@ -83,10 +83,20 @@ export const getDashboardStats = async (req: Request, res: Response) => {
             };
         });
 
+        // Count check-ins today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const checkedInToday = await Ticket.countDocuments({
+            eventId: { $in: eventIds },
+            status: 'checked-in',
+            checkedInAt: { $gte: today }
+        });
+
         res.status(200).json({
             totalRevenue,
             totalTickets,
             checkedInTickets,
+            checkedInToday,
             activeEventsCount,
             draftEventsCount,
             closedEventsCount,

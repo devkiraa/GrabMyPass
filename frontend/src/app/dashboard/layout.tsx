@@ -15,8 +15,7 @@ import {
     QrCode,
     Mail,
     FileText,
-    CreditCard,
-    Clock
+    CreditCard
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -170,17 +169,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <CreditCard className="mr-3 h-5 w-5" />
                         Ticket Designer
                     </Button>
-                    <Button
-                        variant="ghost"
-                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/email-logs'
-                            ? 'bg-indigo-50 text-indigo-700'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                            }`}
-                        onClick={() => router.push('/dashboard/settings/email-logs')}
-                    >
-                        <Clock className="mr-3 h-5 w-5" />
-                        Email Logs
-                    </Button>
                 </nav>
 
                 <div className="p-4 border-t border-slate-100 space-y-1">
@@ -221,13 +209,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
                     <div className="flex items-center gap-4">
                         <div id="header-actions" className="flex items-center gap-3"></div>
-                        <Button variant="ghost" size="icon" className="text-slate-500 hover:text-indigo-600 relative">
-                            <Bell className="h-5 w-5" />
-                            <span className="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full"></span>
-                        </Button>
-                        <div className="h-8 w-8 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold">
-                            {userEmail ? userEmail[0].toUpperCase() : 'U'}
-                        </div>
+                        <NotificationBell />
+                        <ProfileDropdown userEmail={userEmail} />
                     </div>
                 </header>
 
@@ -240,3 +223,296 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
 }
 
+// Notification Bell Component
+function NotificationBell() {
+    const [isOpen, setIsOpen] = useState(false);
+    const [notifications, setNotifications] = useState<any[]>([]);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        fetchUnreadCount();
+        // Poll for new notifications every 30 seconds
+        const interval = setInterval(fetchUnreadCount, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const fetchUnreadCount = async () => {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/notifications/unread-count`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                setUnreadCount(data.unreadCount);
+            }
+        } catch (err) {
+            console.error('Failed to fetch unread count');
+        }
+    };
+
+    const fetchNotifications = async () => {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+        setLoading(true);
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/notifications?limit=10`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                setNotifications(data.notifications || []);
+            }
+        } catch (err) {
+            console.error('Failed to fetch notifications');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const markAllRead = async () => {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+        try {
+            await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/notifications/read-all`,
+                { method: 'PATCH', headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            setUnreadCount(0);
+            setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+        } catch (err) {
+            console.error('Failed to mark all as read');
+        }
+    };
+
+    const handleOpen = () => {
+        setIsOpen(!isOpen);
+        if (!isOpen) {
+            fetchNotifications();
+        }
+    };
+
+    const formatTime = (date: string) => {
+        const diff = Date.now() - new Date(date).getTime();
+        const minutes = Math.floor(diff / 60000);
+        if (minutes < 1) return 'Just now';
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    };
+
+    const getIcon = (type: string) => {
+        switch (type) {
+            case 'registration': return <Ticket className="w-4 h-4 text-green-500" />;
+            case 'check_in': return <QrCode className="w-4 h-4 text-blue-500" />;
+            case 'coordinator_invite': return <Users className="w-4 h-4 text-purple-500" />;
+            default: return <Bell className="w-4 h-4 text-slate-500" />;
+        }
+    };
+
+    return (
+        <div className="relative">
+            <Button
+                variant="ghost"
+                size="icon"
+                className="text-slate-500 hover:text-indigo-600 relative"
+                onClick={handleOpen}
+            >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 h-4 w-4 bg-red-500 rounded-full text-[10px] text-white font-bold flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                )}
+            </Button>
+
+            {isOpen && (
+                <>
+                    {/* Backdrop */}
+                    <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+
+                    {/* Dropdown */}
+                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-lg border border-slate-200 z-50 overflow-hidden">
+                        <div className="p-3 border-b border-slate-100 flex items-center justify-between">
+                            <h3 className="font-semibold text-slate-900">Notifications</h3>
+                            {unreadCount > 0 && (
+                                <button
+                                    onClick={markAllRead}
+                                    className="text-xs text-indigo-600 hover:text-indigo-700"
+                                >
+                                    Mark all read
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="max-h-80 overflow-y-auto">
+                            {loading ? (
+                                <div className="p-8 text-center">
+                                    <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                                </div>
+                            ) : notifications.length === 0 ? (
+                                <div className="p-8 text-center text-slate-500">
+                                    <Bell className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                                    <p className="text-sm">No notifications yet</p>
+                                </div>
+                            ) : (
+                                notifications.map((notif) => (
+                                    <div
+                                        key={notif._id}
+                                        className={`p-3 border-b border-slate-50 hover:bg-slate-50 transition-colors ${!notif.isRead ? 'bg-indigo-50/50' : ''}`}
+                                    >
+                                        <div className="flex gap-3">
+                                            <div className="mt-0.5">{getIcon(notif.type)}</div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-medium text-slate-900">{notif.title}</p>
+                                                <p className="text-xs text-slate-500 truncate">{notif.message}</p>
+                                                <p className="text-xs text-slate-400 mt-1">{formatTime(notif.createdAt)}</p>
+                                            </div>
+                                            {!notif.isRead && (
+                                                <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2" />
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
+// Profile Dropdown Component
+function ProfileDropdown({ userEmail }: { userEmail: string }) {
+    const router = useRouter();
+    const [isOpen, setIsOpen] = useState(false);
+    const [profile, setProfile] = useState<{ name?: string; username?: string; avatar?: string; googleAvatar?: string } | null>(null);
+
+    useEffect(() => {
+        fetchProfile();
+    }, []);
+
+    const fetchProfile = async () => {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return;
+        try {
+            const res = await fetch(
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                setProfile(data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch profile');
+        }
+    };
+
+    // Get the best available avatar
+    const avatarUrl = profile?.avatar || profile?.googleAvatar;
+
+    const handleLogout = () => {
+        localStorage.removeItem('auth_token');
+        router.push('/login');
+    };
+
+    return (
+        <div className="relative">
+            <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-slate-100 transition-colors"
+            >
+                {avatarUrl ? (
+                    <img
+                        src={avatarUrl}
+                        alt="Profile"
+                        className="h-8 w-8 rounded-full object-cover border-2 border-indigo-200"
+                    />
+                ) : (
+                    <div className="h-8 w-8 rounded-full bg-indigo-100 border-2 border-indigo-200 flex items-center justify-center text-indigo-700 font-bold text-sm">
+                        {userEmail ? userEmail[0].toUpperCase() : 'U'}
+                    </div>
+                )}
+                <span className="hidden md:block text-sm font-medium text-slate-700 max-w-[120px] truncate">
+                    {profile?.name || userEmail?.split('@')[0] || 'User'}
+                </span>
+                <ChevronRight className={`hidden md:block w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+            </button>
+
+            {isOpen && (
+                <>
+                    {/* Backdrop */}
+                    <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+
+                    {/* Dropdown */}
+                    <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-slate-200 z-50 overflow-hidden">
+                        {/* Profile Header */}
+                        <div className="p-4 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-slate-100">
+                            <div className="flex items-center gap-3">
+                                {avatarUrl ? (
+                                    <img
+                                        src={avatarUrl}
+                                        alt="Profile"
+                                        className="h-12 w-12 rounded-full object-cover border-2 border-white shadow"
+                                    />
+                                ) : (
+                                    <div className="h-12 w-12 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow">
+                                        {userEmail ? userEmail[0].toUpperCase() : 'U'}
+                                    </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-slate-900 truncate">
+                                        {profile?.name || userEmail?.split('@')[0] || 'User'}
+                                    </p>
+                                    <p className="text-xs text-slate-500 truncate">{userEmail}</p>
+                                    {profile?.username && (
+                                        <p className="text-xs text-indigo-600">@{profile.username}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Menu Items */}
+                        <div className="p-2">
+                            <button
+                                onClick={() => { setIsOpen(false); router.push('/dashboard/settings'); }}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                <Settings className="w-4 h-4 text-slate-400" />
+                                Account Settings
+                            </button>
+                            <button
+                                onClick={() => { setIsOpen(false); router.push(`/u/${profile?.username || ''}`); }}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
+                            >
+                                <Users className="w-4 h-4 text-slate-400" />
+                                Public Profile
+                            </button>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="border-t border-slate-100" />
+
+                        {/* Logout */}
+                        <div className="p-2">
+                            <button
+                                onClick={handleLogout}
+                                className="w-full flex items-center gap-3 px-3 py-2 text-sm text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                            >
+                                <LogOut className="w-4 h-4" />
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}

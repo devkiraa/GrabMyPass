@@ -298,7 +298,7 @@ export default function QRScannerPage() {
                                     <Input
                                         value={manualCode}
                                         onChange={(e) => setManualCode(e.target.value.toUpperCase())}
-                                        placeholder="e.g. ABC12345"
+                                        placeholder="e.g. TKT-85BBBEB9"
                                         className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 h-14 text-lg font-mono text-center tracking-widest"
                                         autoFocus
                                     />
@@ -328,10 +328,10 @@ export default function QRScannerPage() {
                 {/* Scan Result */}
                 {scanResult && (
                     <Card className={`border-2 ${scanResult.success
-                            ? 'bg-green-900/50 border-green-500'
-                            : scanResult.alreadyCheckedIn
-                                ? 'bg-amber-900/50 border-amber-500'
-                                : 'bg-red-900/50 border-red-500'
+                        ? 'bg-green-900/50 border-green-500'
+                        : scanResult.alreadyCheckedIn
+                            ? 'bg-amber-900/50 border-amber-500'
+                            : 'bg-red-900/50 border-red-500'
                         } mb-6`}>
                         <CardContent className="pt-6 text-center">
                             {scanResult.success ? (

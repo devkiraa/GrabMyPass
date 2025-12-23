@@ -374,12 +374,38 @@ export const scanQRCheckIn = async (req: Request, res: Response) => {
             return res.status(403).json({ message: 'Not authorized to scan tickets for this event' });
         }
 
-        // Find the ticket
-        const ticket = await Ticket.findOne({ ticketCode, eventId });
+        // Find the ticket - support multiple formats
+        let ticket = null;
+        const code = ticketCode.trim();
+
+        // Check if input is a ticket code (TKT-XXXXXXXX format)
+        if (code.toUpperCase().startsWith('TKT-')) {
+            // Extract the short code (8 characters after TKT-)
+            const shortCode = code.substring(4).toLowerCase();
+
+            // Search for ticket where qrCodeHash starts with this short code
+            ticket = await Ticket.findOne({
+                eventId,
+                qrCodeHash: { $regex: `^${shortCode}`, $options: 'i' }
+            });
+        } else {
+            // Could be full hash or partial - try exact match first
+            ticket = await Ticket.findOne({ eventId, qrCodeHash: code });
+
+            // Try case-insensitive partial match
+            if (!ticket) {
+                ticket = await Ticket.findOne({
+                    eventId,
+                    qrCodeHash: { $regex: `^${code}`, $options: 'i' }
+                });
+            }
+        }
+
         if (!ticket) {
             return res.status(404).json({
-                message: 'Invalid ticket',
-                valid: false
+                message: 'Invalid ticket - not found for this event',
+                valid: false,
+                hint: 'Make sure you are scanning for the correct event'
             });
         }
 
@@ -393,13 +419,16 @@ export const scanQRCheckIn = async (req: Request, res: Response) => {
                     id: ticket._id,
                     name: ticket.guestName,
                     email: ticket.guestEmail,
-                    checkedInAt: ticket.updatedAt
+                    ticketCode: `TKT-${ticket.qrCodeHash.substring(0, 8).toUpperCase()}`,
+                    checkedInAt: ticket.checkedInAt || ticket.updatedAt
                 }
             });
         }
 
         // Check in the attendee
         ticket.status = 'checked-in';
+        ticket.checkedInAt = new Date();
+        ticket.checkedInBy = userId;
         await ticket.save();
 
         res.json({
@@ -409,6 +438,7 @@ export const scanQRCheckIn = async (req: Request, res: Response) => {
                 id: ticket._id,
                 name: ticket.guestName,
                 email: ticket.guestEmail,
+                ticketCode: `TKT-${ticket.qrCodeHash.substring(0, 8).toUpperCase()}`,
                 checkedInAt: new Date()
             }
         });

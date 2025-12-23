@@ -3,6 +3,7 @@ import { Event } from '../models/Event';
 import { Ticket } from '../models/Ticket';
 import crypto from 'crypto';
 import { sendTicketEmail } from '../services/emailService';
+import { createNotification } from './notificationController';
 
 // Register for Event
 export const registerTicket = async (req: Request, res: Response) => {
@@ -145,6 +146,17 @@ export const registerTicket = async (req: Request, res: Response) => {
         }).catch(err => {
             // Log error but don't fail the registration
             console.error('Email sending failed:', err.message);
+        });
+
+        // Create notification for event host
+        createNotification({
+            userId: event.hostId.toString(),
+            type: 'registration',
+            title: 'New Registration',
+            message: `${guestName || guestEmail} registered for ${event.title}`,
+            eventId: event._id.toString(),
+            ticketId: ticket._id.toString(),
+            data: { guestName, guestEmail, ticketCode: `TKT-${qrCodeHash.substring(0, 8).toUpperCase()}` }
         });
 
         res.status(201).json({ message: 'Ticket registered successfully', ticket });

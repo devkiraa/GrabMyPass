@@ -102,6 +102,29 @@ export const generateTicketImage = async (params: GenerateTicketParams): Promise
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, width, height);
 
+        // Draw background image if available
+        if (templateId) {
+            const template = await TicketTemplate.findById(templateId);
+            if (template?.backgroundImage) {
+                try {
+                    const bgImage = await loadImage(template.backgroundImage);
+                    // Draw based on backgroundSize setting
+                    if (template.backgroundSize === 'contain') {
+                        const scale = Math.min(width / bgImage.width, height / bgImage.height);
+                        const x = (width - bgImage.width * scale) / 2;
+                        const y = (height - bgImage.height * scale) / 2;
+                        ctx.drawImage(bgImage, x, y, bgImage.width * scale, bgImage.height * scale);
+                    } else {
+                        // cover or stretch
+                        ctx.drawImage(bgImage, 0, 0, width, height);
+                    }
+                    console.log(`🖼️ Background image applied`);
+                } catch (imgError) {
+                    console.warn('Failed to load background image, using color fallback');
+                }
+            }
+        }
+
         // Generate QR code
         const qrCodeBuffer = await QRCode.toBuffer(qrCodeData, {
             width: qrSettings.size,

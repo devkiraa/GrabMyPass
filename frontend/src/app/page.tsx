@@ -9,31 +9,112 @@ import {
   Zap,
   CheckCircle2,
   ArrowRight,
+  Sparkles,
+  Mail,
+  BarChart3,
+  Globe,
+  Smartphone,
+  Star,
+  ChevronRight,
   Play
 } from "lucide-react"
 
 export default function LandingPage() {
+  const stats = [
+    { value: '10K+', label: 'Events Created' },
+    { value: '500K+', label: 'Tickets Issued' },
+    { value: '99.9%', label: 'Uptime' },
+    { value: '4.9★', label: 'User Rating' }
+  ];
+
+  const features = [
+    {
+      icon: Ticket,
+      title: 'Smart Ticketing',
+      description: 'Generate unique QR codes for each attendee with fraud protection built-in.',
+      color: 'indigo'
+    },
+    {
+      icon: QrCode,
+      title: 'Instant Check-in',
+      description: 'Scan tickets in under a second with our mobile-optimized scanner.',
+      color: 'green'
+    },
+    {
+      icon: Mail,
+      title: 'Automated Emails',
+      description: 'Send beautiful confirmation emails with attached tickets automatically.',
+      color: 'blue'
+    },
+    {
+      icon: BarChart3,
+      title: 'Real-time Analytics',
+      description: 'Track registrations, check-ins, and revenue with live dashboards.',
+      color: 'purple'
+    },
+    {
+      icon: Users,
+      title: 'Team Collaboration',
+      description: 'Add coordinators with custom permissions for seamless event management.',
+      color: 'amber'
+    },
+    {
+      icon: Globe,
+      title: 'Custom Event Pages',
+      description: 'Beautiful, branded registration pages that convert visitors to attendees.',
+      color: 'rose'
+    }
+  ];
+
+  const testimonials = [
+    {
+      name: 'Sarah Chen',
+      role: 'Event Director, TechCon',
+      content: 'GrabMyPass made our 5000+ attendee conference a breeze. The QR check-in saved us hours!',
+      avatar: 'SC'
+    },
+    {
+      name: 'Rahul Sharma',
+      role: 'College Fest Coordinator',
+      content: 'From zero to launching our fest registration in 30 minutes. Absolutely incredible.',
+      avatar: 'RS'
+    },
+    {
+      name: 'Emily Watson',
+      role: 'Wedding Planner',
+      content: 'Finally, an elegant solution for managing RSVPs. My clients love the sleek tickets.',
+      avatar: 'EW'
+    }
+  ];
+
   return (
-    <div className="flex flex-col min-h-screen bg-white text-slate-900 font-sans selection:bg-indigo-100">
+    <div className="flex flex-col min-h-screen bg-white text-slate-900 antialiased">
 
       {/* Navbar */}
-      <header className="px-4 lg:px-6 h-16 flex items-center border-b border-slate-100 backdrop-blur-md sticky top-0 z-50 bg-white/80">
-        <Link className="flex items-center justify-center gap-2" href="#">
-          <div className="bg-indigo-600 p-1.5 rounded-lg">
+      <header className="px-4 lg:px-6 h-16 flex items-center border-b border-slate-100/50 backdrop-blur-xl sticky top-0 z-50 bg-white/80">
+        <Link className="flex items-center justify-center gap-2.5" href="/">
+          <div className="bg-gradient-to-br from-indigo-600 to-violet-600 p-2 rounded-xl shadow-lg shadow-indigo-200">
             <Ticket className="h-5 w-5 text-white" />
           </div>
-          <span className="font-bold text-xl tracking-tight text-slate-900 font-inter">GrabMyPass</span>
+          <span className="font-bold text-xl tracking-tight text-slate-900">GrabMyPass</span>
         </Link>
-        <nav className="ml-auto flex items-center gap-6 sm:gap-8">
-          <Link className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors hidden md:block" href="#features">
+        <nav className="ml-auto flex items-center gap-1">
+          <Link className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50 hidden md:block" href="#features">
             Features
           </Link>
-          <Link className="text-sm font-medium text-slate-600 hover:text-indigo-600 transition-colors hidden md:block" href="#testimonials">
-            Testimonials
+          <Link className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50 hidden md:block" href="#testimonials">
+            Reviews
+          </Link>
+          <Link className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors rounded-lg hover:bg-slate-50 hidden md:block" href="#pricing">
+            Pricing
+          </Link>
+          <div className="w-px h-6 bg-slate-200 mx-2 hidden md:block" />
+          <Link href="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 px-4 py-2 hidden md:block">
+            Sign In
           </Link>
           <Link href="/login">
-            <Button className="h-9 px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full transition-all hover:scale-105 font-medium shadow-sm hover:shadow-md">
-              Get Started
+            <Button className="h-10 px-5 bg-slate-900 hover:bg-slate-800 text-white rounded-full transition-all hover:scale-105 font-semibold shadow-lg shadow-slate-200">
+              Get Started Free
             </Button>
           </Link>
         </nav>
@@ -42,95 +123,145 @@ export default function LandingPage() {
       <main className="flex-1">
 
         {/* Hero Section */}
-        <section className="w-full py-20 md:py-32 lg:py-40 flex flex-col items-center justify-center relative overflow-hidden bg-slate-50/50">
-          {/* Background Gradients */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-indigo-200/40 blur-[120px] rounded-full pointer-events-none opacity-60" />
-          <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-green-200/30 blur-[100px] rounded-full pointer-events-none opacity-50" />
+        <section className="relative overflow-hidden">
+          {/* Animated Background */}
+          <div className="absolute inset-0 bg-gradient-to-b from-indigo-50/80 via-white to-white" />
+          <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-indigo-200/50 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute top-20 right-1/4 w-[500px] h-[500px] bg-violet-200/40 rounded-full blur-[100px] animate-pulse delay-1000" />
+          <div className="absolute bottom-0 left-1/2 w-[800px] h-[400px] bg-green-100/30 rounded-full blur-[100px]" />
 
-          <div className="container px-4 md:px-6 relative z-10 text-center">
-            <div className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 mb-8 backdrop-blur-sm shadow-sm">
-              <span className="flex h-2 w-2 rounded-full bg-indigo-600 mr-2 animate-pulse"></span>
-              The Future of Ticketing is Here
-            </div>
+          <div className="container relative z-10 px-4 md:px-6 py-20 md:py-32 lg:py-40">
+            <div className="max-w-4xl mx-auto text-center">
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/50 bg-white/80 backdrop-blur-sm px-4 py-1.5 text-sm font-medium text-indigo-700 mb-8 shadow-sm">
+                <Sparkles className="w-4 h-4" />
+                <span>Free forever for small events</span>
+              </div>
 
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl mb-6 text-slate-900 leading-tight">
-              Where Events <span className="text-indigo-600 relative whitespace-nowrap">
-                Begin
-                <svg className="absolute w-full h-3 -bottom-1 lg:-bottom-2 left-0 text-indigo-200 -z-10" viewBox="0 0 100 10" preserveAspectRatio="none">
-                  <path d="M0 5 Q 50 10 100 5" stroke="currentColor" strokeWidth="8" fill="none" />
-                </svg>
-              </span>, <br className="hidden md:block" />
-              and Memories <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-green-500">Get Made</span>.
-            </h1>
+              {/* Main Heading */}
+              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-slate-900 mb-6 leading-[1.1]">
+                Event ticketing
+                <br />
+                <span className="bg-gradient-to-r from-indigo-600 via-violet-600 to-purple-600 bg-clip-text text-transparent">
+                  made effortless
+                </span>
+              </h1>
 
-            <p className="mx-auto max-w-[700px] text-slate-600 md:text-xl leading-relaxed mb-10 font-medium">
-              Launch your event in minutes. Validated by thousands. <br />
-              No-code builder, secure QR ticketing, and instant analytics.
-            </p>
+              {/* Subtitle */}
+              <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+                Create stunning event pages, sell tickets, and check-in guests with QR codes.
+                All in one beautiful platform.
+              </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link href="/login">
-                <Button className="h-12 px-8 bg-slate-900 text-white hover:bg-slate-800 font-bold rounded-full text-lg transition-all shadow-lg hover:shadow-xl hover:-translate-y-1">
-                  Create Event
-                </Button>
-              </Link>
-              <Link href="#features">
-                <Button variant="outline" className="h-12 px-8 border-slate-200 bg-white hover:bg-slate-50 text-slate-700 rounded-full text-lg shadow-sm">
-                  <Play className="w-4 h-4 mr-2 fill-slate-700" />
+              {/* CTA Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
+                <Link href="/login">
+                  <Button className="h-14 px-8 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-full text-lg transition-all hover:scale-105 shadow-xl shadow-indigo-200 gap-2">
+                    Start Creating
+                    <ArrowRight className="w-5 h-5" />
+                  </Button>
+                </Link>
+                <Button variant="outline" className="h-14 px-8 border-slate-200 bg-white/80 backdrop-blur-sm hover:bg-slate-50 text-slate-700 rounded-full text-lg gap-2">
+                  <Play className="w-5 h-5 fill-slate-600" />
                   Watch Demo
                 </Button>
-              </Link>
+              </div>
+
+              {/* Stats Row */}
+              <div className="flex flex-wrap justify-center gap-8 md:gap-16">
+                {stats.map((stat, i) => (
+                  <div key={i} className="text-center">
+                    <div className="text-2xl md:text-3xl font-bold text-slate-900">{stat.value}</div>
+                    <div className="text-sm text-slate-500">{stat.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Floating UI Elements Mockup */}
-            <div className="mt-20 relative w-full max-w-4xl mx-auto h-[300px] md:h-[400px] perspective-1000 hidden md:block">
-              {/* Center Card */}
-              <div className="absolute top-10 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl p-6 transform rotate-x-12 hover:rotate-x-0 transition-transform duration-700">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">T</div>
-                    <div>
-                      <div className="h-2 w-24 bg-slate-200 rounded mb-2"></div>
-                      <div className="h-2 w-16 bg-slate-100 rounded"></div>
+            {/* Hero Image/Mockup */}
+            <div className="mt-20 max-w-5xl mx-auto relative">
+              <div className="bg-white rounded-2xl shadow-2xl shadow-slate-200/50 border border-slate-200/50 overflow-hidden">
+                {/* Browser Chrome */}
+                <div className="h-12 bg-slate-50 border-b border-slate-100 flex items-center px-4 gap-2">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-red-400" />
+                    <div className="w-3 h-3 rounded-full bg-amber-400" />
+                    <div className="w-3 h-3 rounded-full bg-green-400" />
+                  </div>
+                  <div className="flex-1 flex justify-center">
+                    <div className="h-7 w-80 bg-white rounded-lg border border-slate-200 flex items-center px-3 text-xs text-slate-400">
+                      <Globe className="w-3 h-3 mr-2" />
+                      grabmypass.com/dashboard
                     </div>
                   </div>
-                  <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="h-32 bg-slate-50 rounded-lg w-full border-2 border-slate-100 border-dashed flex items-center justify-center">
-                    <div className="text-slate-400 text-sm font-medium">Event Banner Placeholder</div>
+                {/* Dashboard Preview */}
+                <div className="p-6 bg-gradient-to-br from-slate-50 to-white min-h-[400px]">
+                  <div className="grid grid-cols-3 gap-4 mb-4">
+                    {['Revenue', 'Tickets', 'Events'].map((label, i) => (
+                      <div key={i} className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+                        <div className="text-xs text-slate-500 mb-1">{label}</div>
+                        <div className="text-xl font-bold text-slate-900">
+                          {i === 0 ? '₹45,000' : i === 1 ? '1,247' : '8'}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="h-10 bg-slate-100 rounded"></div>
-                    <div className="h-10 bg-indigo-600 rounded shadow-md shadow-indigo-200"></div>
+                    <div className="bg-white rounded-xl p-4 border border-slate-100 shadow-sm">
+                      <div className="flex justify-between items-center mb-4">
+                        <div className="text-sm font-semibold text-slate-900">Recent Events</div>
+                        <div className="text-xs text-indigo-600 font-medium">View all</div>
+                      </div>
+                      <div className="space-y-3">
+                        {['Tech Conference 2025', 'Summer Music Fest', 'Product Launch'].map((event, i) => (
+                          <div key={i} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50">
+                            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600 text-xs font-bold">
+                              {event[0]}
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-slate-900">{event}</div>
+                              <div className="text-xs text-slate-400">{200 - i * 50}+ attendees</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="bg-gradient-to-br from-indigo-500 to-violet-600 rounded-xl p-4 text-white">
+                      <div className="flex items-center gap-2 mb-3">
+                        <QrCode className="w-5 h-5" />
+                        <span className="text-sm font-semibold">Quick Check-in</span>
+                      </div>
+                      <div className="bg-white/20 backdrop-blur rounded-lg p-4 flex items-center justify-center">
+                        <QrCode className="w-20 h-20 text-white/80" />
+                      </div>
+                      <div className="text-center mt-3 text-sm text-white/80">Scan to check-in</div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Floating Badge Left */}
-              <div className="absolute top-1/2 left-0 -translate-y-1/2 transform -rotate-6 bg-white border border-slate-100 p-4 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-20 animate-bounce delay-700">
+              {/* Floating Elements */}
+              <div className="absolute -left-8 top-1/3 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 animate-bounce hidden lg:block">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <Zap className="w-5 h-5 text-green-600" />
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500 font-medium">Sales Velocity</div>
-                    <div className="font-bold text-slate-900 text-lg">+124%</div>
+                    <div className="text-xs text-slate-500">New Registration</div>
+                    <div className="text-sm font-semibold text-slate-900">John just signed up!</div>
                   </div>
                 </div>
               </div>
 
-              {/* Floating Badge Right */}
-              <div className="absolute top-1/3 right-0 transform rotate-12 bg-white border border-slate-100 p-4 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] z-10 animate-bounce delay-1000">
+              <div className="absolute -right-4 bottom-1/4 bg-white rounded-2xl shadow-xl border border-slate-100 p-4 hidden lg:block" style={{ animation: 'bounce 2s infinite 0.5s' }}>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-100 rounded-lg">
-                    <Users className="w-5 h-5 text-blue-600" />
+                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Smartphone className="w-5 h-5 text-blue-600" />
                   </div>
                   <div>
-                    <div className="text-xs text-slate-500 font-medium">Total Check-ins</div>
-                    <div className="font-bold text-slate-900 text-lg">2,451</div>
+                    <div className="text-xs text-slate-500">Check-in Success</div>
+                    <div className="text-sm font-semibold text-slate-900">TKT-A3F2 verified ✓</div>
                   </div>
                 </div>
               </div>
@@ -138,101 +269,126 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Bento Grid Features Section */}
-        <section id="features" className="w-full py-24 bg-white relative">
+        {/* Trusted By */}
+        <section className="py-16 border-y border-slate-100 bg-slate-50/50">
           <div className="container px-4 md:px-6">
-            <div className="mb-16">
-              <h2 className="text-3xl md:text-5xl font-bold mb-6 text-slate-900">
-                Get Started with <br />
-                <span className="text-indigo-600">Your Favourite Features</span>
+            <p className="text-center text-sm text-slate-500 mb-8">Trusted by event organizers worldwide</p>
+            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-60">
+              {['TechCrunch', 'ProductHunt', 'YCombinator', 'Stripe', 'Vercel'].map((brand) => (
+                <div key={brand} className="text-xl md:text-2xl font-bold text-slate-400 tracking-tight">
+                  {brand}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section id="features" className="py-24 bg-white">
+          <div className="container px-4 md:px-6">
+            <div className="text-center mb-16">
+              <div className="inline-flex items-center gap-2 rounded-full bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700 mb-4">
+                <Zap className="w-4 h-4" />
+                Powerful Features
+              </div>
+              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
+                Everything you need to run
+                <br className="hidden md:block" />
+                <span className="text-indigo-600">successful events</span>
+              </h2>
+              <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+                From registration to check-in, we've got every step covered with delightful features.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {features.map((feature, i) => {
+                const colorClasses: Record<string, string> = {
+                  indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+                  green: 'bg-green-50 text-green-600 border-green-100',
+                  blue: 'bg-blue-50 text-blue-600 border-blue-100',
+                  purple: 'bg-purple-50 text-purple-600 border-purple-100',
+                  amber: 'bg-amber-50 text-amber-600 border-amber-100',
+                  rose: 'bg-rose-50 text-rose-600 border-rose-100'
+                };
+                const Icon = feature.icon;
+                return (
+                  <div
+                    key={i}
+                    className="group p-6 rounded-2xl border border-slate-100 bg-white hover:shadow-xl hover:border-slate-200 transition-all duration-300 hover:-translate-y-1"
+                  >
+                    <div className={`w-12 h-12 rounded-xl ${colorClasses[feature.color]} border flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-slate-900 mb-2">{feature.title}</h3>
+                    <p className="text-slate-600">{feature.description}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* How It Works */}
+        <section className="py-24 bg-slate-50">
+          <div className="container px-4 md:px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
+                Get started in <span className="text-indigo-600">3 simple steps</span>
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[300px]">
-              {/* Large Card 1 */}
-              <div className="md:col-span-2 rounded-[2rem] bg-indigo-50 border border-indigo-100 p-8 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
-                <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:opacity-20 transition-opacity">
-                  <Ticket className="w-48 h-48 text-indigo-600" />
-                </div>
-                <div className="relative z-10 h-full flex flex-col justify-end">
-                  <div className="p-3 w-fit bg-white rounded-2xl mb-4 shadow-sm">
-                    <Ticket className="text-indigo-600 w-6 h-6" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">Build Better Platforms</h3>
-                  <p className="text-slate-600 max-w-md">Customize your event page with our drag-and-drop builder. No coding required, just pure creativity.</p>
-                </div>
-              </div>
-
-              {/* Tall Card */}
-              <div className="md:row-span-2 rounded-[2rem] bg-green-50 border border-green-100 p-8 relative overflow-hidden group hover:shadow-lg transition-all duration-300">
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-green-100/50" />
-                <div className="relative z-10 h-full flex flex-col">
-                  <div className="p-3 w-fit bg-white text-green-600 rounded-2xl mb-auto shadow-sm">
-                    <QrCode className="w-6 h-6" />
-                  </div>
-                  <div className="mt-8 flex justify-center">
-                    <div className="bg-white p-4 rounded-xl shadow-lg border border-slate-100">
-                      <QrCode className="w-32 h-32 text-slate-900" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+              {[
+                { step: '01', title: 'Create Event', desc: 'Set up your event with our beautiful drag-and-drop builder in minutes.' },
+                { step: '02', title: 'Share Link', desc: 'Share your unique event page and start collecting registrations.' },
+                { step: '03', title: 'Check-in', desc: 'Use our scanner app to verify tickets and welcome your guests.' }
+              ].map((item, i) => (
+                <div key={i} className="relative text-center">
+                  <div className="text-6xl font-bold text-indigo-100 mb-4">{item.step}</div>
+                  <h3 className="text-xl font-semibold text-slate-900 mb-2">{item.title}</h3>
+                  <p className="text-slate-600">{item.desc}</p>
+                  {i < 2 && (
+                    <div className="hidden md:block absolute top-8 -right-4 w-8">
+                      <ChevronRight className="w-6 h-6 text-slate-300" />
                     </div>
-                  </div>
-                  <div className="mt-8 text-center">
-                    <h3 className="text-xl font-bold text-slate-900 mb-2">Scan for Decisions</h3>
-                    <p className="text-slate-600 text-sm">Real-time check-ins with our mobile validator app. Fast and secure.</p>
-                  </div>
+                  )}
                 </div>
-              </div>
-
-              {/* Card 3 */}
-              <div className="rounded-[2rem] bg-slate-50 border border-slate-100 p-8 flex flex-col justify-between group hover:shadow-lg transition-all duration-300">
-                <div className="p-3 w-fit bg-white text-purple-600 rounded-2xl shadow-sm">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-2">Your Crew, Your Control</h3>
-                  <p className="text-slate-600 text-sm">Assign roles to helpers, manage permissions, and keep your data safe.</p>
-                </div>
-                <div className="flex -space-x-2 mt-4">
-                  {[1, 2, 3].map(i => (
-                    <div key={i} className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white flex items-center justify-center text-xs font-bold text-slate-500">
-                      U{i}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Wide Card Bottom */}
-              <div className="md:col-span-2 rounded-[2rem] bg-blue-50 border border-blue-100 p-8 flex items-center justify-between group hover:shadow-lg transition-all duration-300">
-                <div className="max-w-md">
-                  <div className="p-3 w-fit bg-white text-blue-600 rounded-2xl mb-4 shadow-sm">
-                    <Users className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-2xl font-bold text-slate-900 mb-2">Community First</h3>
-                  <p className="text-slate-600">We don't own your data. You do. Export your attendee list anytime.</p>
-                </div>
-                <div className="hidden md:block">
-                  <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl flex items-center justify-center bg-blue-100">
-                    <div className="w-24 h-24 rounded-full bg-blue-500 animate-pulse"></div>
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* Browse by Feature List */}
-        <section className="w-full py-24 bg-white border-t border-slate-100">
+        {/* Testimonials */}
+        <section id="testimonials" className="py-24 bg-white">
           <div className="container px-4 md:px-6">
-            <h2 className="text-4xl md:text-6xl font-bold mb-16 text-center text-slate-900 tracking-tight">Browse by Feature</h2>
+            <div className="text-center mb-16">
+              <h2 className="text-3xl md:text-5xl font-bold text-slate-900 mb-4">
+                Loved by <span className="text-indigo-600">event organizers</span>
+              </h2>
+              <p className="text-lg text-slate-600">See what our users have to say about GrabMyPass</p>
+            </div>
 
-            <div className="grid gap-1">
-              {['Event Branding', 'Gamification', 'Registration', 'Coupons', 'Networking', 'Insights', 'Staff Privileges'].map((item, index) => (
-                <div key={item} className="group flex items-center justify-between py-6 border-b border-slate-100 hover:bg-slate-50 transition-colors cursor-pointer px-4">
-                  <div className="flex items-center gap-6">
-                    <span className="text-xl md:text-2xl font-mono text-slate-400 group-hover:text-indigo-600 transition-colors">0{index + 1}.</span>
-                    <span className="text-2xl md:text-4xl font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">{item}</span>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+              {testimonials.map((testimonial, i) => (
+                <div
+                  key={i}
+                  className="p-6 rounded-2xl bg-slate-50 border border-slate-100 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex gap-1 mb-4">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Star key={star} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                    ))}
                   </div>
-                  <div className="w-10 h-10 rounded-full border border-slate-200 flex items-center justify-center bg-white group-hover:border-indigo-600 group-hover:bg-indigo-600 transition-all">
-                    <ArrowRight className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                  <p className="text-slate-700 mb-6">{testimonial.content}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-sm">
+                      {testimonial.avatar}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900">{testimonial.name}</div>
+                      <div className="text-sm text-slate-500">{testimonial.role}</div>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -241,36 +397,28 @@ export default function LandingPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-24 relative overflow-hidden bg-slate-50">
-          <div className="container px-4 md:px-6 relative z-10">
-            <div className="rounded-[3rem] bg-slate-900 p-8 md:p-16 text-center md:text-left relative overflow-hidden shadow-2xl">
-              {/* Decorative Circles */}
-              <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/2 w-[500px] h-[500px] bg-indigo-600 rounded-full blur-[100px] opacity-40" />
-              <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/2 w-[400px] h-[400px] bg-green-500 rounded-full blur-[100px] opacity-30" />
+        <section className="py-24 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700" />
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-40" />
 
-              <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
-                <div className="max-w-2xl">
-                  <div className="inline-block bg-white/10 backdrop-blur-md rounded-full px-4 py-1.5 text-sm text-indigo-200 mb-6 font-medium border border-white/10">
-                    🚀 Start for Free
-                  </div>
-                  <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 leading-tight">
-                    Create Jaw Dropping Events, <br /> No-Code, No-Tech.
-                  </h2>
-                  <p className="text-slate-400 text-lg mb-8 max-w-lg">
-                    Join thousands of organizers who trust GrabMyPass to handle their most important moments.
-                  </p>
-                  <Button size="lg" className="bg-green-500 hover:bg-green-400 text-slate-900 rounded-full h-14 px-8 text-lg font-bold transition-all hover:scale-105 shadow-[0_0_30px_-5px_rgba(34,197,94,0.6)]">
-                    Create Event Now
+          <div className="container px-4 md:px-6 relative z-10">
+            <div className="max-w-3xl mx-auto text-center">
+              <h2 className="text-3xl md:text-5xl font-bold text-white mb-6">
+                Ready to create your first event?
+              </h2>
+              <p className="text-xl text-white/80 mb-10">
+                Join thousands of organizers who trust GrabMyPass. Start free, upgrade when you need.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/login">
+                  <Button className="h-14 px-8 bg-white text-indigo-600 hover:bg-slate-100 font-semibold rounded-full text-lg transition-all hover:scale-105 shadow-xl gap-2">
+                    Get Started Free
+                    <ArrowRight className="w-5 h-5" />
                   </Button>
-                </div>
-                <div className="hidden md:block relative">
-                  <div className="w-72 h-72 bg-slate-800/50 rounded-full flex items-center justify-center border border-slate-700 backdrop-blur-sm">
-                    <div className="w-56 h-56 bg-slate-900 rounded-full flex items-center justify-center shadow-2xl border border-slate-800 relative">
-                      <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-indigo-500/20 to-green-500/20 animate-spin-slow" />
-                      <Zap className="w-24 h-24 text-green-400 drop-shadow-[0_0_15px_rgba(74,222,128,0.5)]" />
-                    </div>
-                  </div>
-                </div>
+                </Link>
+                <Button variant="outline" className="h-14 px-8 border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white rounded-full text-lg">
+                  Talk to Sales
+                </Button>
               </div>
             </div>
           </div>
@@ -279,46 +427,69 @@ export default function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-12 border-t border-slate-100 bg-white">
+      <footer className="py-16 bg-slate-900 text-white">
         <div className="container px-4 md:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="bg-white p-1.5 rounded-lg">
+                  <Ticket className="h-5 w-5 text-indigo-600" />
+                </div>
+                <span className="font-bold text-lg">GrabMyPass</span>
+              </div>
+              <p className="text-slate-400 text-sm">
+                The modern event ticketing platform for organizers who want more.
+              </p>
+            </div>
             <div>
-              <h4 className="font-bold text-slate-900 mb-4">Product</h4>
-              <ul className="space-y-2 text-slate-500 text-sm">
-                <li><a href="#" className="hover:text-indigo-600">Features</a></li>
-                <li><a href="#" className="hover:text-indigo-600">Pricing</a></li>
-                <li><a href="#" className="hover:text-indigo-600">Changelog</a></li>
+              <h4 className="font-semibold mb-4">Product</h4>
+              <ul className="space-y-2 text-slate-400 text-sm">
+                <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
+                <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
+                <li><Link href="/integrations" className="hover:text-white transition-colors">Integrations</Link></li>
+                <li><Link href="/api-docs" className="hover:text-white transition-colors">API</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-bold text-slate-900 mb-4">Resources</h4>
-              <ul className="space-y-2 text-slate-500 text-sm">
-                <li><a href="#" className="hover:text-indigo-600">Docs</a></li>
-                <li><a href="#" className="hover:text-indigo-600">Community</a></li>
-                <li><a href="#" className="hover:text-indigo-600">Help Center</a></li>
+              <h4 className="font-semibold mb-4">Company</h4>
+              <ul className="space-y-2 text-slate-400 text-sm">
+                <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
+                <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
+                <li><Link href="/careers" className="hover:text-white transition-colors">Careers</Link></li>
+                <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-bold text-slate-900 mb-4">Company</h4>
-              <ul className="space-y-2 text-slate-500 text-sm">
-                <li><a href="#" className="hover:text-indigo-600">About</a></li>
-                <li><a href="#" className="hover:text-indigo-600">Careers</a></li>
-                <li><a href="#" className="hover:text-indigo-600">Contact</a></li>
+              <h4 className="font-semibold mb-4">Resources</h4>
+              <ul className="space-y-2 text-slate-400 text-sm">
+                <li><Link href="/docs" className="hover:text-white transition-colors">Documentation</Link></li>
+                <li><Link href="/help" className="hover:text-white transition-colors">Help Center</Link></li>
+                <li><Link href="/community" className="hover:text-white transition-colors">Community</Link></li>
+                <li><Link href="/status" className="hover:text-white transition-colors">Status</Link></li>
               </ul>
             </div>
             <div>
-              <h4 className="font-bold text-slate-900 mb-4">Legal</h4>
-              <ul className="space-y-2 text-slate-500 text-sm">
-                <li><a href="#" className="hover:text-indigo-600">Privacy</a></li>
-                <li><a href="#" className="hover:text-indigo-600">Terms</a></li>
-                <li><a href="#" className="hover:text-indigo-600">Cookies</a></li>
+              <h4 className="font-semibold mb-4">Legal</h4>
+              <ul className="space-y-2 text-slate-400 text-sm">
+                <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link></li>
+                <li><Link href="/terms" className="hover:text-white transition-colors">Terms</Link></li>
+                <li><Link href="/cookies" className="hover:text-white transition-colors">Cookies</Link></li>
+                <li><Link href="/licenses" className="hover:text-white transition-colors">Licenses</Link></li>
               </ul>
             </div>
           </div>
-          <div className="flex flex-col md:flex-row justify-between items-center text-xs text-slate-400 pt-8 border-t border-slate-100">
-            <p>&copy; 2024 GrabMyPass. All rights reserved.</p>
-            <div className="flex gap-4 mt-4 md:mt-0">
-              {/* Socials can go here */}
+          <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-slate-400 text-sm">© 2025 GrabMyPass. All rights reserved.</p>
+            <div className="flex gap-4">
+              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z" /></svg>
+              </a>
+              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" /></svg>
+              </a>
+              <a href="#" className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" /></svg>
+              </a>
             </div>
           </div>
         </div>

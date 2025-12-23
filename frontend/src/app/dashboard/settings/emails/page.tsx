@@ -235,8 +235,22 @@ export default function EmailSettingsPage() {
                 </CardHeader>
                 <CardContent>
                     {loading ? (
-                        <div className="flex justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                        <div className="space-y-3">
+                            {[1, 2].map(i => (
+                                <div key={i} className="flex items-center justify-between p-4 rounded-lg border-2 border-slate-100 animate-pulse">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-full bg-slate-200" />
+                                        <div className="space-y-2">
+                                            <div className="h-4 w-48 bg-slate-200 rounded" />
+                                            <div className="h-3 w-32 bg-slate-100 rounded" />
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <div className="h-8 w-20 bg-slate-100 rounded" />
+                                        <div className="h-8 w-8 bg-slate-100 rounded" />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     ) : accounts.length === 0 ? (
                         <div className="text-center py-12">
@@ -326,29 +340,145 @@ export default function EmailSettingsPage() {
                 </CardContent>
             </Card>
 
-            {/* Email Templates Link */}
-            <Card>
-                <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="p-3 bg-purple-100 rounded-lg">
-                                <svg className="w-6 h-6 text-purple-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 className="font-semibold text-slate-900">Email Templates</h3>
-                                <p className="text-sm text-slate-500">Create and manage email templates for your events</p>
-                            </div>
-                        </div>
-                        <Link href="/dashboard/settings/email-templates">
-                            <Button variant="outline">
-                                Manage Templates
-                            </Button>
-                        </Link>
-                    </div>
-                </CardContent>
-            </Card>
+            {/* Recent Email Logs */}
+            <EmailLogsSection />
         </div>
+    );
+}
+
+// Email Logs Component
+function EmailLogsSection() {
+    const [loading, setLoading] = useState(true);
+    const [logs, setLogs] = useState<any[]>([]);
+    const [stats, setStats] = useState<{ total: number; sent: number; failed: number; successRate: number } | null>(null);
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        const token = localStorage.getItem('auth_token');
+        try {
+            const [logsRes, statsRes] = await Promise.all([
+                fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/email/logs?limit=5`,
+                    { headers: { 'Authorization': `Bearer ${token}` } }
+                ),
+                fetch(
+                    `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/email/logs/stats`,
+                    { headers: { 'Authorization': `Bearer ${token}` } }
+                )
+            ]);
+
+            if (logsRes.ok) {
+                const data = await logsRes.json();
+                setLogs(data.logs || []);
+            }
+            if (statsRes.ok) {
+                setStats(await statsRes.json());
+            }
+        } catch (err) {
+            console.error('Failed to fetch logs', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const formatDate = (date: string) => {
+        return new Date(date).toLocaleString('en-IN', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
+    return (
+        <Card>
+            <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <Mail className="w-5 h-5" /> Email Activity
+                        </CardTitle>
+                        <CardDescription>Recent sent emails and delivery status</CardDescription>
+                    </div>
+                    <Link href="/dashboard/settings/email-logs">
+                        <Button variant="outline" size="sm">View All Logs</Button>
+                    </Link>
+                </div>
+            </CardHeader>
+            <CardContent>
+                {/* Stats Row */}
+                {stats && (
+                    <div className="grid grid-cols-4 gap-4 mb-6">
+                        <div className="p-3 bg-slate-50 rounded-lg text-center">
+                            <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
+                            <p className="text-xs text-slate-500">Total Sent</p>
+                        </div>
+                        <div className="p-3 bg-green-50 rounded-lg text-center">
+                            <p className="text-2xl font-bold text-green-600">{stats.sent}</p>
+                            <p className="text-xs text-slate-500">Delivered</p>
+                        </div>
+                        <div className="p-3 bg-red-50 rounded-lg text-center">
+                            <p className="text-2xl font-bold text-red-600">{stats.failed}</p>
+                            <p className="text-xs text-slate-500">Failed</p>
+                        </div>
+                        <div className="p-3 bg-indigo-50 rounded-lg text-center">
+                            <p className="text-2xl font-bold text-indigo-600">{stats.successRate}%</p>
+                            <p className="text-xs text-slate-500">Success Rate</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Recent Logs */}
+                {loading ? (
+                    <div className="flex justify-center py-8">
+                        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+                    </div>
+                ) : logs.length === 0 ? (
+                    <div className="text-center py-8 text-slate-500">
+                        <Mail className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                        <p className="text-sm">No emails sent yet</p>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {logs.map((log) => (
+                            <div
+                                key={log._id}
+                                className="flex items-center justify-between p-3 bg-slate-50 rounded-lg"
+                            >
+                                <div className="flex items-center gap-3">
+                                    {log.status === 'sent' ? (
+                                        <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                    ) : (
+                                        <XCircle className="w-5 h-5 text-red-500" />
+                                    )}
+                                    <div>
+                                        <p className="font-medium text-slate-900 text-sm">
+                                            {log.toName || log.toEmail}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                            {log.eventTitle || log.subject}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full ${log.status === 'sent'
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-red-100 text-red-700'
+                                        }`}>
+                                        {log.status}
+                                    </span>
+                                    <p className="text-xs text-slate-400 mt-1">
+                                        {formatDate(log.createdAt)}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+        </Card>
     );
 }

@@ -138,6 +138,7 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
             user = await User.create({
                 email: profile.email,
                 username: username,
+                name: profile.name, // Save Google name
                 password: hashedPassword,
                 googleId: profile.id,
                 googleAvatar: profile.picture, // Store Google avatar separately
@@ -150,6 +151,8 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
                 googleAvatar: profile.picture // Always update Google avatar to keep it current
             };
             if (!user.googleId) updates.googleId = profile.id;
+            // Only set name if missing
+            if (!user.name && profile.name) updates.name = profile.name;
             // Only set avatar if missing (respect user's custom avatar choice)
             if (!user.avatar) updates.avatar = profile.picture;
 

@@ -70,8 +70,8 @@ interface TemplateSpecs {
 
 const sampleData: Record<string, string> = {
     'guest_name': 'John Doe',
-    'event_title': 'Tech Conference 2024',
-    'event_date': 'Dec 25, 2024 • 10:00 AM',
+    'event_title': 'Tech Conference 2025',
+    'event_date': 'Dec 25, 2025 • 10:00 AM',
     'event_location': 'Convention Center',
     'ticket_code': 'TKT-ABC123'
 };
@@ -324,16 +324,31 @@ export default function TicketTemplatesPage() {
         ctx.fillStyle = formData.backgroundColor;
         ctx.fillRect(0, 0, formData.width, formData.height);
 
-        // QR placeholder
-        ctx.fillStyle = '#e5e7eb';
-        ctx.fillRect(formData.qrCode.x, formData.qrCode.y, formData.qrCode.size, formData.qrCode.size);
-        ctx.fillStyle = '#9ca3af';
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('QR CODE', formData.qrCode.x + formData.qrCode.size / 2, formData.qrCode.y + formData.qrCode.size / 2 + 4);
+        // Draw border guide
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(10, 10, formData.width - 20, formData.height - 20);
+        ctx.setLineDash([]);
 
-        // Elements
+        // QR placeholder with border
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(formData.qrCode.x, formData.qrCode.y, formData.qrCode.size, formData.qrCode.size);
+        ctx.strokeStyle = '#4F46E5';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(formData.qrCode.x, formData.qrCode.y, formData.qrCode.size, formData.qrCode.size);
+        ctx.fillStyle = '#6366f1';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('QR CODE ZONE', formData.qrCode.x + formData.qrCode.size / 2, formData.qrCode.y + formData.qrCode.size / 2);
+        ctx.font = '10px Arial';
+        ctx.fillText(`${formData.qrCode.size}×${formData.qrCode.size}px`, formData.qrCode.x + formData.qrCode.size / 2, formData.qrCode.y + formData.qrCode.size / 2 + 15);
+
+        // Elements with position markers
         formData.elements.forEach(el => {
+            // Draw position marker
+            ctx.fillStyle = 'rgba(99, 102, 241, 0.2)';
+            ctx.fillRect(el.x - 2, el.y - 2, 150, el.fontSize + 4);
+
             ctx.fillStyle = el.color;
             ctx.font = `${el.fontWeight} ${el.fontSize}px ${el.fontFamily}`;
             ctx.textAlign = el.textAlign as CanvasTextAlign;
@@ -341,9 +356,56 @@ export default function TicketTemplatesPage() {
             ctx.fillText(text, el.x, el.y + el.fontSize);
         });
 
+        // Add dimension labels
+        ctx.fillStyle = 'rgba(255,255,255,0.7)';
+        ctx.font = '11px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${formData.width} × ${formData.height}px`, formData.width / 2, formData.height - 8);
+
         // Download
         const link = document.createElement('a');
-        link.download = `${formData.name || 'ticket-template'}.png`;
+        link.download = `${formData.name || 'ticket-template'}-guide.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    };
+
+    // Download blank template for external design
+    const downloadBlankTemplate = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = formData.width;
+        canvas.height = formData.height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Transparent/white background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, formData.width, formData.height);
+
+        // Safety margins
+        ctx.strokeStyle = '#e5e7eb';
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(10, 10, formData.width - 20, formData.height - 20);
+        ctx.setLineDash([]);
+
+        // QR zone marker
+        ctx.fillStyle = '#f3f4f6';
+        ctx.fillRect(formData.qrCode.x, formData.qrCode.y, formData.qrCode.size, formData.qrCode.size);
+        ctx.strokeStyle = '#d1d5db';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(formData.qrCode.x, formData.qrCode.y, formData.qrCode.size, formData.qrCode.size);
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('QR ZONE', formData.qrCode.x + formData.qrCode.size / 2, formData.qrCode.y + formData.qrCode.size / 2 + 4);
+
+        // Dimension label
+        ctx.fillStyle = '#d1d5db';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${formData.width}×${formData.height}px`, formData.width - 10, formData.height - 8);
+
+        const link = document.createElement('a');
+        link.download = `ticket-template-${formData.width}x${formData.height}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
     };
@@ -381,8 +443,28 @@ export default function TicketTemplatesPage() {
             )}
 
             {loading ? (
-                <div className="flex justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[1, 2].map(i => (
+                        <Card key={i} className="animate-pulse overflow-hidden">
+                            <div className="h-40 bg-gradient-to-br from-slate-200 to-slate-100">
+                                <div className="p-4">
+                                    <div className="w-16 h-16 bg-white/50 rounded" />
+                                </div>
+                            </div>
+                            <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-2">
+                                        <div className="h-4 w-24 bg-slate-200 rounded" />
+                                        <div className="h-3 w-16 bg-slate-100 rounded" />
+                                    </div>
+                                    <div className="flex gap-1">
+                                        <div className="h-8 w-8 bg-slate-100 rounded" />
+                                        <div className="h-8 w-8 bg-slate-100 rounded" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
             ) : !showEditor ? (
                 /* Template List */
@@ -538,6 +620,74 @@ export default function TicketTemplatesPage() {
                                 </div>
                             </div>
 
+                            {/* Background Image Upload */}
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2">
+                                    <ImageIcon className="w-4 h-4" /> Background Image
+                                </Label>
+                                <div className="space-y-3">
+                                    {formData.backgroundImage ? (
+                                        <div className="relative">
+                                            <img
+                                                src={formData.backgroundImage}
+                                                alt="Background preview"
+                                                className="w-full h-24 object-cover rounded-lg border"
+                                            />
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white h-6 w-6 p-0"
+                                                onClick={() => setFormData({ ...formData, backgroundImage: '' })}
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-slate-300 rounded-lg cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/50 transition-colors">
+                                            <ImageIcon className="w-6 h-6 text-slate-400 mb-1" />
+                                            <span className="text-sm text-slate-500">Click to upload</span>
+                                            <span className="text-xs text-slate-400">PNG, JPG (max 2MB)</span>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                className="hidden"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        if (file.size > 2 * 1024 * 1024) {
+                                                            setMessage({ type: 'error', text: 'Image must be less than 2MB' });
+                                                            return;
+                                                        }
+                                                        const reader = new FileReader();
+                                                        reader.onload = (event) => {
+                                                            setFormData({
+                                                                ...formData,
+                                                                backgroundImage: event.target?.result as string
+                                                            });
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                            />
+                                        </label>
+                                    )}
+                                    {formData.backgroundImage && (
+                                        <select
+                                            value={formData.backgroundSize}
+                                            onChange={(e) => setFormData({ ...formData, backgroundSize: e.target.value })}
+                                            className="w-full h-9 px-3 rounded-md border border-slate-200 text-sm"
+                                        >
+                                            <option value="cover">Cover (fill)</option>
+                                            <option value="contain">Contain (fit)</option>
+                                            <option value="100% 100%">Stretch</option>
+                                        </select>
+                                    )}
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    Design in Photoshop/Figma ({formData.width}×{formData.height}px), then upload here
+                                </p>
+                            </div>
+
                             <div className="border-t pt-4">
                                 <Label className="flex items-center gap-2 mb-3">
                                     <QrCode className="w-4 h-4" /> QR Code Settings
@@ -651,13 +801,39 @@ export default function TicketTemplatesPage() {
                                 <Label htmlFor="isDefault" className="font-normal text-sm">Set as default</Label>
                             </div>
 
+                            <div className="space-y-2 pt-4 border-t">
+                                <Label className="flex items-center gap-2 text-sm">
+                                    <Download className="w-4 h-4" /> Download Templates
+                                </Label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={downloadBlankTemplate}
+                                        className="text-xs"
+                                        title="Download blank canvas for Photoshop/Figma"
+                                    >
+                                        Blank Canvas
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={downloadTemplate}
+                                        className="text-xs"
+                                        title="Download with current design as guide"
+                                    >
+                                        Design Guide
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-slate-500">
+                                    Design externally, then upload as background
+                                </p>
+                            </div>
+
                             <div className="flex gap-2 pt-4 border-t">
-                                <Button variant="outline" onClick={downloadTemplate} className="flex-1">
-                                    <Download className="w-4 h-4 mr-1" /> Export
-                                </Button>
-                                <Button onClick={handleSubmit} disabled={saving} className="flex-1 bg-indigo-600 hover:bg-indigo-700">
-                                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}
-                                    Save
+                                <Button onClick={handleSubmit} disabled={saving} className="w-full bg-indigo-600 hover:bg-indigo-700">
+                                    {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                                    Save Template
                                 </Button>
                             </div>
                         </CardContent>
@@ -717,8 +893,8 @@ export default function TicketTemplatesPage() {
                                             <div
                                                 key={el.id}
                                                 className={`absolute cursor-move whitespace-nowrap px-1 rounded transition-all ${selectedElement === el.id
-                                                        ? 'ring-2 ring-indigo-500 bg-indigo-500/10'
-                                                        : 'hover:ring-2 hover:ring-indigo-300 hover:bg-white/10'
+                                                    ? 'ring-2 ring-indigo-500 bg-indigo-500/10'
+                                                    : 'hover:ring-2 hover:ring-indigo-300 hover:bg-white/10'
                                                     }`}
                                                 style={{
                                                     left: `${(el.x / formData.width) * 100}%`,

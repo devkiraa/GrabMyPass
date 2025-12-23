@@ -42,14 +42,14 @@ interface Placeholder {
 const sampleData: Record<string, string> = {
     '{{guest_name}}': 'John Doe',
     '{{guest_email}}': 'john@example.com',
-    '{{event_title}}': 'Tech Conference 2024',
-    '{{event_date}}': 'December 25, 2024 at 10:00 AM',
+    '{{event_title}}': 'Tech Conference 2025',
+    '{{event_date}}': 'December 25, 2025 at 10:00 AM',
     '{{event_time}}': '10:00 AM',
     '{{event_location}}': 'Convention Center, Main Hall',
     '{{event_description}}': 'Join us for an exciting tech conference...',
     '{{ticket_code}}': 'TKT-ABC123',
     '{{qr_code_url}}': 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=TKT-ABC123',
-    '{{event_link}}': 'https://grabmypass.com/events/tech-conf-2024',
+    '{{event_link}}': 'https://grabmypass.com/events/tech-conf-2025',
     '{{host_name}}': 'Event Host',
     '{{host_email}}': 'host@example.com'
 };
@@ -329,8 +329,26 @@ export default function EmailTemplatesPage() {
             )}
 
             {loading ? (
-                <div className="flex justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[1, 2, 3].map(i => (
+                        <Card key={i} className="animate-pulse">
+                            <CardHeader className="pb-3">
+                                <div className="flex items-start justify-between">
+                                    <div className="space-y-2">
+                                        <div className="h-5 w-32 bg-slate-200 rounded" />
+                                        <div className="h-3 w-48 bg-slate-100 rounded" />
+                                    </div>
+                                    <div className="h-5 w-16 bg-slate-100 rounded-full" />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="flex gap-2">
+                                    <div className="h-8 flex-1 bg-slate-100 rounded" />
+                                    <div className="h-8 w-10 bg-slate-50 rounded" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
             ) : !showEditor ? (
                 /* Template List View */
@@ -530,8 +548,8 @@ export default function EmailTemplatesPage() {
                                         <button
                                             onClick={() => setPreviewMode('desktop')}
                                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${previewMode === 'desktop'
-                                                    ? 'bg-white shadow-sm text-slate-900'
-                                                    : 'text-slate-500 hover:text-slate-700'
+                                                ? 'bg-white shadow-sm text-slate-900'
+                                                : 'text-slate-500 hover:text-slate-700'
                                                 }`}
                                         >
                                             <Monitor className="w-4 h-4" />
@@ -540,8 +558,8 @@ export default function EmailTemplatesPage() {
                                         <button
                                             onClick={() => setPreviewMode('mobile')}
                                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${previewMode === 'mobile'
-                                                    ? 'bg-white shadow-sm text-slate-900'
-                                                    : 'text-slate-500 hover:text-slate-700'
+                                                ? 'bg-white shadow-sm text-slate-900'
+                                                : 'text-slate-500 hover:text-slate-700'
                                                 }`}
                                         >
                                             <Smartphone className="w-4 h-4" />

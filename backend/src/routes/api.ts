@@ -125,3 +125,20 @@ apiRouter.get('/ticket-templates/default', verifyToken, getDefaultTicketTemplate
 apiRouter.get('/ticket-templates/:templateId', verifyToken, getTicketTemplate);
 apiRouter.patch('/ticket-templates/:templateId', verifyToken, updateTicketTemplate);
 apiRouter.delete('/ticket-templates/:templateId', verifyToken, deleteTicketTemplate);
+
+// Notifications
+import {
+    getNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+    clearAllNotifications,
+    getUnreadCount
+} from '../controllers/notificationController';
+
+apiRouter.get('/notifications', verifyToken, getNotifications);
+apiRouter.get('/notifications/unread-count', verifyToken, getUnreadCount);
+apiRouter.patch('/notifications/read-all', verifyToken, markAllAsRead);
+apiRouter.patch('/notifications/:notificationId/read', verifyToken, markAsRead);
+apiRouter.delete('/notifications/:notificationId', verifyToken, deleteNotification);
+apiRouter.delete('/notifications', verifyToken, clearAllNotifications);

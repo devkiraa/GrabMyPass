@@ -437,7 +437,7 @@ export default function CreateEventPage() {
                 <div className="space-y-6">
                     <div className="grid gap-2">
                         <Label htmlFor="title">Event Title</Label>
-                        <Input id="title" name="title" value={formData.title} onChange={handleInputChange} placeholder="e.g. Annual Tech Conference 2024" className="bg-white" />
+                        <Input id="title" name="title" value={formData.title} onChange={handleInputChange} placeholder="e.g. Annual Tech Conference 2025" className="bg-white" />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="slug">Event URL Slug</Label>
@@ -451,7 +451,7 @@ export default function CreateEventPage() {
                                     name="slug"
                                     value={formData.slug}
                                     onChange={handleInputChange}
-                                    placeholder="tech-conf-2024"
+                                    placeholder="tech-conf-2025"
                                     className={`bg-white rounded-l-none ${slugAvailable === false ? 'border-red-500 focus:ring-red-500' : slugAvailable === true ? 'border-green-500 focus:ring-green-500' : ''}`}
                                 />
                             </div>
