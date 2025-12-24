@@ -489,7 +489,7 @@ function ProfileDropdown({ userEmail }: { userEmail: string }) {
                                 Account Settings
                             </button>
                             <button
-                                onClick={() => { setIsOpen(false); router.push(`/u/${profile?.username || ''}`); }}
+                                onClick={() => { setIsOpen(false); router.push(`/${profile?.username || ''}`); }}
                                 className="w-full flex items-center gap-3 px-3 py-2 text-sm text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
                             >
                                 <Users className="w-4 h-4 text-slate-400" />

@@ -23,6 +23,22 @@ const createSession = async (userId: string, req: Request) => {
     return session;
 };
 
+// Helper to download image and convert to base64
+const downloadImageAsBase64 = async (url: string): Promise<string | null> => {
+    try {
+        const response = await axios.get(url, {
+            responseType: 'arraybuffer',
+            timeout: 5000
+        });
+        const contentType = response.headers['content-type'] || 'image/jpeg';
+        const base64 = Buffer.from(response.data, 'binary').toString('base64');
+        return `data:${contentType};base64,${base64}`;
+    } catch (error) {
+        console.error('Failed to download avatar image:', error);
+        return null;
+    }
+};
+
 export const register = async (req: Request, res: Response) => {
     try {
         const { email, password, role } = req.body;
@@ -135,26 +151,41 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
                 username = `${baseUsername}${Date.now()}`;
             }
 
+            // Download the avatar image and convert to base64
+            const avatarBase64 = await downloadImageAsBase64(profile.picture);
+
             user = await User.create({
                 email: profile.email,
                 username: username,
                 name: profile.name, // Save Google name
                 password: hashedPassword,
                 googleId: profile.id,
-                googleAvatar: profile.picture, // Store Google avatar separately
-                avatar: profile.picture, // Also set as default avatar
+                googleAvatar: profile.picture, // Store Google avatar URL for reference
+                avatar: avatarBase64 || profile.picture, // Store base64 or fallback to URL
                 role: 'host' // Default role
             });
         } else {
             // Update googleId and googleAvatar (always keep in sync with Google)
             let updates: any = {
-                googleAvatar: profile.picture // Always update Google avatar to keep it current
+                googleAvatar: profile.picture // Always update Google avatar URL for reference
             };
             if (!user.googleId) updates.googleId = profile.id;
             // Only set name if missing
             if (!user.name && profile.name) updates.name = profile.name;
-            // Only set avatar if missing (respect user's custom avatar choice)
-            if (!user.avatar) updates.avatar = profile.picture;
+            // Set avatar to Google picture if:
+            // 1. User doesn't have an avatar, OR
+            // 2. User's current avatar is a Google URL (not a custom data:image upload)
+            const isGoogleAvatar = user.avatar?.includes('googleusercontent.com');
+            const hasNoAvatar = !user.avatar;
+            const isNotBase64 = !user.avatar?.startsWith('data:');
+
+            if (hasNoAvatar || isGoogleAvatar || (isNotBase64 && user.googleId)) {
+                // Download and store as base64
+                const avatarBase64 = await downloadImageAsBase64(profile.picture);
+                if (avatarBase64) {
+                    updates.avatar = avatarBase64;
+                }
+            }
 
             if (Object.keys(updates).length > 0) {
                 user = await User.findByIdAndUpdate(user._id, updates, { new: true });

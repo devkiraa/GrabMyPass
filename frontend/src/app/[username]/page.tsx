@@ -39,8 +39,8 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col md:flex-row items-center md:items-end gap-6">
                     <div className="relative">
                         <div className="h-32 w-32 rounded-2xl border-4 border-white bg-white shadow-md overflow-hidden flex items-center justify-center bg-slate-100">
-                            {user.avatar ? (
-                                <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+                            {(user.avatar || user.googleAvatar) ? (
+                                <img src={user.avatar || user.googleAvatar} alt={user.name} className="w-full h-full object-cover" />
                             ) : (
                                 <div className="text-4xl font-bold text-slate-400">
                                     {(user.name || user.username || user.email || 'U')[0].toUpperCase()}

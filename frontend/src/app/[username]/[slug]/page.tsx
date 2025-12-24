@@ -359,102 +359,71 @@ export default function PublicEventPage() {
 
     // Success View
     if (success || step === 3) return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-            {/* Animated background elements */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#00CC68]/20 rounded-full blur-[120px] animate-pulse" />
-                <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
-                {/* Confetti dots */}
-                {[...Array(20)].map((_, i) => (
-                    <div
-                        key={i}
-                        className="absolute w-2 h-2 rounded-full animate-bounce"
-                        style={{
-                            left: `${Math.random() * 100}%`,
-                            top: `${Math.random() * 100}%`,
-                            backgroundColor: ['#00CC68', '#FFD700', '#FF6B6B', '#4ECDC4', '#A855F7'][i % 5],
-                            animationDelay: `${Math.random() * 2}s`,
-                            animationDuration: `${2 + Math.random() * 2}s`
-                        }}
-                    />
-                ))}
-            </div>
+        <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center p-4">
+            <div className="w-full max-w-lg">
+                {/* Success Card */}
+                <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
 
-            <div className="relative z-10 w-full max-w-md">
-                {/* Success Card - Ticket Style */}
-                <div className="bg-white rounded-3xl overflow-hidden shadow-2xl">
-                    {/* Header with checkmark */}
-                    <div className="bg-gradient-to-r from-[#00CC68] to-[#00a857] px-8 py-10 text-center relative">
-                        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-                        <div className="relative">
-                            <div className="w-20 h-20 bg-white rounded-full mx-auto flex items-center justify-center shadow-lg mb-4">
-                                <CheckCircle2 className="w-10 h-10 text-[#00CC68]" />
+                    {/* Header */}
+                    <div className="pt-12 pb-8 px-8 text-center">
+                        {/* Animated Check Circle */}
+                        <div className="relative w-20 h-20 mx-auto mb-6">
+                            <div className="absolute inset-0 bg-emerald-100 rounded-full animate-ping opacity-25" />
+                            <div className="relative w-20 h-20 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-emerald-200">
+                                <CheckCircle2 className="w-10 h-10 text-white" strokeWidth={2.5} />
                             </div>
-                            <h2 className="text-3xl font-black text-white mb-1">You're In! 🎉</h2>
-                            <p className="text-white/80 text-sm">Spot confirmed for this event</p>
                         </div>
+
+                        <h2 className="text-2xl font-bold text-slate-900 mb-2">You're all set!</h2>
+                        <p className="text-slate-500">Your registration is confirmed</p>
                     </div>
 
-                    {/* Ticket tear line */}
-                    <div className="relative">
-                        <div className="absolute left-0 w-6 h-6 bg-slate-900 rounded-full -translate-x-1/2 -translate-y-1/2" />
-                        <div className="absolute right-0 w-6 h-6 bg-slate-900 rounded-full translate-x-1/2 -translate-y-1/2" />
-                        <div className="border-t-2 border-dashed border-slate-200 mx-6" />
+                    {/* Divider */}
+                    <div className="relative px-8">
+                        <div className="absolute left-0 top-1/2 w-4 h-8 bg-slate-50 rounded-r-full -translate-y-1/2" />
+                        <div className="absolute right-0 top-1/2 w-4 h-8 bg-slate-50 rounded-l-full -translate-y-1/2" />
+                        <div className="border-t border-dashed border-slate-200" />
                     </div>
 
                     {/* Event Details */}
-                    <div className="px-8 py-8">
-                        <div className="text-center mb-6">
-                            <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Event</p>
-                            <h3 className="text-2xl font-bold text-slate-900">{event.title}</h3>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
-                                <div className="w-12 h-12 bg-[#00CC68]/10 rounded-xl flex items-center justify-center">
-                                    <Mail className="w-5 h-5 text-[#00CC68]" />
-                                </div>
-                                <div className="flex-1">
-                                    <p className="text-xs text-slate-500 font-medium">Confirmation sent to</p>
-                                    <p className="font-semibold text-slate-900 truncate">{userEmail}</p>
-                                </div>
+                    <div className="p-8">
+                        <div className="bg-slate-50 rounded-xl p-5 mb-6">
+                            <h3 className="font-bold text-lg text-slate-900 mb-1">{event.title}</h3>
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-500">
+                                {event.date && (
+                                    <div className="flex items-center gap-1.5">
+                                        <Calendar className="w-4 h-4" />
+                                        <span>{new Date(event.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                                    </div>
+                                )}
+                                {event.location && (
+                                    <div className="flex items-center gap-1.5">
+                                        <MapPin className="w-4 h-4" />
+                                        <span>{event.location}</span>
+                                    </div>
+                                )}
                             </div>
-
-                            {event.date && (
-                                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
-                                    <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
-                                        <Calendar className="w-5 h-5 text-indigo-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-xs text-slate-500 font-medium">Event Date</p>
-                                        <p className="font-semibold text-slate-900">
-                                            {new Date(event.date).toLocaleDateString('en-IN', {
-                                                weekday: 'long',
-                                                day: 'numeric',
-                                                month: 'long',
-                                                year: 'numeric'
-                                            })}
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {event.location && (
-                                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl">
-                                    <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
-                                        <MapPin className="w-5 h-5 text-amber-600" />
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="text-xs text-slate-500 font-medium">Venue</p>
-                                        <p className="font-semibold text-slate-900">{event.location}</p>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
-                        <div className="mt-8 space-y-3">
+                        {/* Confirmation Details */}
+                        <div className="space-y-3 mb-8">
+                            <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                                <span className="text-slate-500 text-sm">Confirmation sent to</span>
+                                <span className="font-medium text-slate-900 text-sm">{userEmail}</span>
+                            </div>
+                            <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                                <span className="text-slate-500 text-sm">Status</span>
+                                <span className="inline-flex items-center gap-1.5 text-emerald-600 text-sm font-medium">
+                                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                                    Confirmed
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="space-y-3">
                             <Button
-                                className="w-full h-12 bg-[#00CC68] hover:bg-[#00b359] text-white font-bold rounded-xl shadow-lg shadow-[#00CC68]/25 transition-all hover:scale-[1.02]"
+                                className="w-full h-12 bg-slate-900 hover:bg-slate-800 text-white font-semibold rounded-xl transition-all"
                                 onClick={() => window.location.reload()}
                             >
                                 <Users className="w-4 h-4 mr-2" />
@@ -463,7 +432,7 @@ export default function PublicEventPage() {
 
                             <Button
                                 variant="outline"
-                                className="w-full h-12 border-slate-200 text-slate-700 font-medium rounded-xl hover:bg-slate-50"
+                                className="w-full h-12 border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50"
                                 onClick={() => window.location.href = '/'}
                             >
                                 Back to Home
@@ -472,16 +441,17 @@ export default function PublicEventPage() {
                     </div>
 
                     {/* Footer */}
-                    <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 text-center">
-                        <p className="text-xs text-slate-400">
-                            🎟️ Your ticket details have been sent to your email
-                        </p>
+                    <div className="px-8 py-4 bg-slate-50 border-t border-slate-100">
+                        <div className="flex items-center justify-center gap-2 text-slate-400 text-xs">
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>Check your inbox for ticket details</span>
+                        </div>
                     </div>
                 </div>
 
-                {/* Powered by badge */}
-                <p className="text-center text-slate-500 text-sm mt-6">
-                    Powered by <span className="font-semibold text-white">GrabMyPass</span>
+                {/* Powered by */}
+                <p className="text-center text-slate-400 text-sm mt-6">
+                    Powered by <span className="font-semibold text-slate-600">GrabMyPass</span>
                 </p>
             </div>
         </div>

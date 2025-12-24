@@ -394,8 +394,8 @@ export default function ProfilePage() {
                         {/* Avatar */}
                         <div className="-mt-12 p-1 bg-white rounded-2xl shadow-lg relative group">
                             <div className="h-24 w-24 md:h-32 md:w-32 rounded-xl bg-slate-200 flex items-center justify-center overflow-hidden border border-slate-100 relative">
-                                {user.avatar ? (
-                                    <img src={user.avatar} alt="Profile" className="w-full h-full object-cover" />
+                                {(user.avatar || user.googleAvatar) ? (
+                                    <img src={user.avatar || user.googleAvatar} alt="Profile" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="text-4xl font-bold text-slate-400">
                                         {user.email[0].toUpperCase()}

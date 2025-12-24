@@ -13,6 +13,7 @@ interface UserProfile {
     email: string;
     name?: string;
     avatar?: string;
+    googleAvatar?: string;
     googleId?: string;
 }
 
@@ -121,8 +122,8 @@ export default function LoginPage() {
                             {/* User Profile Card */}
                             <div className="flex items-center gap-4 p-4 bg-slate-50 border border-slate-100 rounded-xl">
                                 <div className="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center overflow-hidden border-2 border-white shadow-sm">
-                                    {loggedInUser.avatar ? (
-                                        <img src={loggedInUser.avatar} alt="Profile" className="w-full h-full object-cover" />
+                                    {(loggedInUser.avatar || loggedInUser.googleAvatar) ? (
+                                        <img src={loggedInUser.avatar || loggedInUser.googleAvatar} alt="Profile" className="w-full h-full object-cover" />
                                     ) : (
                                         <span className="text-xl font-bold text-indigo-600">
                                             {(loggedInUser.name?.[0] || loggedInUser.email[0]).toUpperCase()}
