@@ -170,7 +170,10 @@ export const sendBulkEmail = async (req: Request, res: Response) => {
         }
 
         // Get user's active email account
-        const emailAccount = await EmailAccount.findOne({ userId, isActive: true });
+        // Convert to ObjectId for consistent querying
+        const mongoose = require('mongoose');
+        const userObjectId = new mongoose.Types.ObjectId(userId);
+        const emailAccount = await EmailAccount.findOne({ userId: userObjectId, isActive: true });
         if (!emailAccount) {
             return res.status(400).json({ message: 'No active email account. Please connect Gmail first.' });
         }
@@ -247,8 +250,13 @@ export const sendBulkEmail = async (req: Request, res: Response) => {
                     `;
                 }
 
+                // Determine the "From" address - use custom domain if configured
+                const senderName = (emailAccount as any).customFromName || emailAccount.name || 'GrabMyPass';
+                const senderEmail = (emailAccount as any).customFromEmail || emailAccount.email;
+                const fromHeader = `${senderName} <${senderEmail}>`;
+
                 const rawMessage = [
-                    `From: ${emailAccount.email}`,
+                    `From: ${fromHeader}`,
                     `To: ${contact.email}`,
                     `Subject: ${subject}`,
                     `Content-Type: text/html; charset=utf-8`,

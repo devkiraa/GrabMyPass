@@ -184,8 +184,10 @@ const emailWorker = new Worker('email-queue', async (job) => {
             }
 
             // Try to send via Gmail OAuth first
+            // Convert to ObjectId for consistent querying
+            const hostObjectId = new (require('mongoose').Types.ObjectId)(eventHostId);
             const emailAccount = await EmailAccount.findOne({
-                userId: eventHostId,
+                userId: hostObjectId,
                 isActive: true,
                 provider: 'gmail'
             });
@@ -216,6 +218,11 @@ const emailWorker = new Worker('email-queue', async (job) => {
 
                     const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
 
+                    // Determine the "From" address - use custom domain if configured
+                    const senderName = (emailAccount as any).customFromName || emailAccount.name || 'GrabMyPass';
+                    const senderEmail = (emailAccount as any).customFromEmail || emailAccount.email;
+                    const fromHeader = `${senderName} <${senderEmail}>`;
+
                     // Build email with attachment option
                     const boundary = `boundary_${Date.now()}`;
                     let rawEmail = '';
@@ -225,7 +232,7 @@ const emailWorker = new Worker('email-queue', async (job) => {
                         // For now, we'll just include QR in the email body
                         // Full ticket generation with canvas would require additional setup
                         rawEmail = Buffer.from(
-                            `From: ${emailAccount.email}\r\n` +
+                            `From: ${fromHeader}\r\n` +
                             `To: ${recipientEmail}\r\n` +
                             `Subject: ${emailSubject}\r\n` +
                             `MIME-Version: 1.0\r\n` +
@@ -234,7 +241,7 @@ const emailWorker = new Worker('email-queue', async (job) => {
                         ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
                     } else {
                         rawEmail = Buffer.from(
-                            `From: ${emailAccount.email}\r\n` +
+                            `From: ${fromHeader}\r\n` +
                             `To: ${recipientEmail}\r\n` +
                             `Subject: ${emailSubject}\r\n` +
                             `MIME-Version: 1.0\r\n` +
@@ -248,7 +255,7 @@ const emailWorker = new Worker('email-queue', async (job) => {
                         requestBody: { raw: rawEmail }
                     });
 
-                    fromEmail = emailAccount.email;
+                    fromEmail = senderEmail;
                     emailSent = true;
 
                     // Update email account stats

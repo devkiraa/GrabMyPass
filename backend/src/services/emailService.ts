@@ -196,14 +196,22 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
         }
 
         // Try to send via Gmail OAuth
+        console.log(`🔍 Looking for email account for hostId: ${eventHostId}`);
+
+        // Convert to ObjectId for consistent querying
+        const mongoose = require('mongoose');
+        const hostObjectId = new mongoose.Types.ObjectId(eventHostId);
+
         const emailAccount = await EmailAccount.findOne({
-            userId: eventHostId,
+            userId: hostObjectId,
             isActive: true,
             provider: 'gmail'
         });
 
+        console.log(`🔍 Found email account: ${emailAccount ? emailAccount.email : 'NONE'}`);
+
         if (!emailAccount) {
-            console.error('❌ No active Gmail account found for host');
+            console.error(`❌ No active Gmail account found for host: ${eventHostId}`);
 
             // Log failed email
             await EmailLog.create({
@@ -225,7 +233,7 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
             return false;
         }
 
-        console.log(`📤 Sending via Gmail: ${emailAccount.email}`);
+        console.log(`📤 Sending via Gmail: ${emailAccount.email} (for host: ${eventHostId})`);
 
         // Send via Gmail OAuth
         const oauth2Client = new google.auth.OAuth2(
@@ -281,13 +289,18 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
         // Build email (with or without attachment)
         let rawEmail: string;
 
+        // Determine the "From" address - use custom domain if configured
+        const fromName = (emailAccount as any).customFromName || emailAccount.name || 'GrabMyPass';
+        const fromEmail = (emailAccount as any).customFromEmail || emailAccount.email;
+        const fromHeader = `${fromName} <${fromEmail}>`;
+
         if (ticketImageBuffer) {
             // MIME multipart email with attachment
             const boundary = `boundary_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const ticketBase64 = ticketImageBuffer.toString('base64');
 
             const mimeMessage = [
-                `From: ${emailAccount.email}`,
+                `From: ${fromHeader}`,
                 `To: ${recipientEmail}`,
                 `Subject: ${emailSubject}`,
                 `MIME-Version: 1.0`,
@@ -319,7 +332,7 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
         } else {
             // Simple HTML email without attachment
             rawEmail = Buffer.from(
-                `From: ${emailAccount.email}\r\n` +
+                `From: ${fromHeader}\r\n` +
                 `To: ${recipientEmail}\r\n` +
                 `Subject: ${emailSubject}\r\n` +
                 `MIME-Version: 1.0\r\n` +
@@ -344,7 +357,7 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
             eventId: eventDetails._id,
             ticketId: ticketData._id,
             type: 'registration',
-            fromEmail: emailAccount.email,
+            fromEmail: fromEmail,
             toEmail: recipientEmail,
             toName: ticketData.guestName,
             subject: emailSubject,

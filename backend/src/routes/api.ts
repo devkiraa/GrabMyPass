@@ -73,6 +73,7 @@ import {
     gmailCallback,
     getEmailAccounts,
     setActiveEmailAccount,
+    updateEmailAccount,
     deleteEmailAccount,
     sendTestEmail,
     createEmailTemplate,
@@ -91,6 +92,7 @@ apiRouter.get('/email/gmail/auth', verifyToken, getGmailAuthUrl);
 apiRouter.get('/email/gmail/callback', gmailCallback); // No auth - redirect from Google with state param
 apiRouter.get('/email/accounts', verifyToken, getEmailAccounts);
 apiRouter.patch('/email/accounts/:accountId/activate', verifyToken, setActiveEmailAccount);
+apiRouter.patch('/email/accounts/:accountId', verifyToken, updateEmailAccount); // Update custom from address
 apiRouter.post('/email/accounts/:accountId/test', verifyToken, sendTestEmail);
 apiRouter.delete('/email/accounts/:accountId', verifyToken, deleteEmailAccount);
 

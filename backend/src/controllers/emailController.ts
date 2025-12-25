@@ -72,7 +72,9 @@ export const gmailCallback = async (req: Request, res: Response) => {
         }
 
         // Save or update email account
-        const existingAccount = await EmailAccount.findOne({ userId, email });
+        // Ensure userId is treated as ObjectId for consistent querying
+        const userObjectId = new (require('mongoose').Types.ObjectId)(userId);
+        const existingAccount = await EmailAccount.findOne({ userId: userObjectId, email });
 
         if (existingAccount) {
             existingAccount.accessToken = tokens.access_token || '';
@@ -83,7 +85,7 @@ export const gmailCallback = async (req: Request, res: Response) => {
             await existingAccount.save();
         } else {
             await EmailAccount.create({
-                userId,
+                userId: userObjectId,
                 email,
                 name,
                 provider: 'gmail',
@@ -107,13 +109,16 @@ export const getEmailAccounts = async (req: Request, res: Response) => {
     try {
         // @ts-ignore
         const userId = req.user.id;
+        const mongoose = require('mongoose');
+        const userObjectId = new mongoose.Types.ObjectId(userId);
 
-        const accounts = await EmailAccount.find({ userId })
+        const accounts = await EmailAccount.find({ userId: userObjectId })
             .select('-accessToken -refreshToken')
             .sort({ createdAt: -1 });
 
         res.json(accounts);
     } catch (error) {
+        console.error('Get email accounts error:', error);
         res.status(500).json({ message: 'Failed to fetch email accounts' });
     }
 };
@@ -124,13 +129,15 @@ export const setActiveEmailAccount = async (req: Request, res: Response) => {
         // @ts-ignore
         const userId = req.user.id;
         const { accountId } = req.params;
+        const mongoose = require('mongoose');
+        const userObjectId = new mongoose.Types.ObjectId(userId);
 
         // Deactivate all accounts
-        await EmailAccount.updateMany({ userId }, { isActive: false });
+        await EmailAccount.updateMany({ userId: userObjectId }, { isActive: false });
 
         // Activate selected account
         const account = await EmailAccount.findOneAndUpdate(
-            { _id: accountId, userId },
+            { _id: accountId, userId: userObjectId },
             { isActive: true },
             { new: true }
         ).select('-accessToken -refreshToken');
@@ -145,14 +152,51 @@ export const setActiveEmailAccount = async (req: Request, res: Response) => {
     }
 };
 
+// Update email account (custom from address)
+export const updateEmailAccount = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const { accountId } = req.params;
+        const { customFromEmail, customFromName } = req.body;
+        const mongoose = require('mongoose');
+        const userObjectId = new mongoose.Types.ObjectId(userId);
+
+        // Validate email format if provided
+        if (customFromEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customFromEmail)) {
+            return res.status(400).json({ message: 'Invalid email format' });
+        }
+
+        const account = await EmailAccount.findOneAndUpdate(
+            { _id: accountId, userId: userObjectId },
+            {
+                ...(customFromEmail !== undefined && { customFromEmail }),
+                ...(customFromName !== undefined && { customFromName })
+            },
+            { new: true }
+        ).select('-accessToken -refreshToken');
+
+        if (!account) {
+            return res.status(404).json({ message: 'Account not found' });
+        }
+
+        res.json({ message: 'Email account updated', account });
+    } catch (error) {
+        console.error('Update email account error:', error);
+        res.status(500).json({ message: 'Failed to update account' });
+    }
+};
+
 // Delete email account
 export const deleteEmailAccount = async (req: Request, res: Response) => {
     try {
         // @ts-ignore
         const userId = req.user.id;
         const { accountId } = req.params;
+        const mongoose = require('mongoose');
+        const userObjectId = new mongoose.Types.ObjectId(userId);
 
-        const result = await EmailAccount.findOneAndDelete({ _id: accountId, userId });
+        const result = await EmailAccount.findOneAndDelete({ _id: accountId, userId: userObjectId });
 
         if (!result) {
             return res.status(404).json({ message: 'Account not found' });
@@ -170,9 +214,11 @@ export const sendTestEmail = async (req: Request, res: Response) => {
         // @ts-ignore
         const userId = req.user.id;
         const { accountId } = req.params;
+        const mongoose = require('mongoose');
+        const userObjectId = new mongoose.Types.ObjectId(userId);
 
         // Get the email account
-        const account = await EmailAccount.findOne({ _id: accountId, userId });
+        const account = await EmailAccount.findOne({ _id: accountId, userId: userObjectId });
         if (!account) {
             return res.status(404).json({ message: 'Account not found' });
         }
@@ -196,44 +242,87 @@ export const sendTestEmail = async (req: Request, res: Response) => {
         // Create Gmail API client
         const gmail = google.gmail({ version: 'v1', auth: testOauth2Client });
 
-        // Create test email
+        // Determine the "From" address - use custom domain if configured
+        const fromName = account.customFromName || account.name || 'GrabMyPass';
+        const fromEmail = account.customFromEmail || account.email;
+        const fromHeader = `${fromName} <${fromEmail}>`;
+
+        // Create test email with modern design
         const testEmailHtml = `
 <!DOCTYPE html>
 <html>
 <head>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; padding: 20px; }
-        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
-        .content { padding: 30px; }
-        .success { background: #dcfce7; border: 1px solid #86efac; padding: 15px; border-radius: 8px; color: #166534; }
-        .footer { padding: 20px 30px; background: #f8fafc; text-align: center; color: #64748b; font-size: 12px; }
-    </style>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Email</title>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🎉 Test Email Successful!</h1>
-        </div>
-        <div class="content">
-            <div class="success">
-                <strong>✅ Your email connection is working!</strong>
-            </div>
-            <p style="margin-top: 20px;">This is a test email from GrabMyPass to verify that your Gmail account is properly connected and can send emails.</p>
-            <p><strong>Account:</strong> ${account.email}</p>
-            <p><strong>Sent at:</strong> ${new Date().toLocaleString()}</p>
-        </div>
-        <div class="footer">
-            <p>GrabMyPass - Event Registration Made Easy</p>
-        </div>
-    </div>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f1f5f9;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table role="presentation" width="100%" style="max-width: 520px; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.1);">
+                    <!-- Header -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%); padding: 48px 40px; text-align: center;">
+                            <div style="width: 72px; height: 72px; background: rgba(255,255,255,0.2); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
+                                <span style="font-size: 36px;">&#9989;</span>
+                            </div>
+                            <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Connection Verified!</h1>
+                            <p style="color: rgba(255,255,255,0.9); margin: 12px 0 0; font-size: 16px;">Your email is ready to send</p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Content -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <!-- Success Badge -->
+                            <div style="background: linear-gradient(135deg, #dcfce7 0%, #d1fae5 100%); border: 1px solid #86efac; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 28px;">
+                                <p style="margin: 0; color: #166534; font-weight: 600; font-size: 15px;">Email connection is working perfectly!</p>
+                            </div>
+                            
+                            <!-- Info Cards -->
+                            <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+                                <tr>
+                                    <td style="background: #f8fafc; border-radius: 10px; padding: 16px 20px; margin-bottom: 12px;">
+                                        <p style="margin: 0 0 4px; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Sender Account</p>
+                                        <p style="margin: 0; color: #1e293b; font-size: 15px; font-weight: 600;">${fromEmail}</p>
+                                    </td>
+                                </tr>
+                                <tr><td style="height: 12px;"></td></tr>
+                                <tr>
+                                    <td style="background: #f8fafc; border-radius: 10px; padding: 16px 20px;">
+                                        <p style="margin: 0 0 4px; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Test Sent At</p>
+                                        <p style="margin: 0; color: #1e293b; font-size: 15px; font-weight: 600;">${new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                                    </td>
+                                </tr>
+                            </table>
+                            
+                            <!-- Message -->
+                            <p style="color: #475569; font-size: 14px; line-height: 1.7; margin: 28px 0 0; text-align: center;">
+                                This test confirms your email account is properly configured and ready to send event tickets and notifications.
+                            </p>
+                        </td>
+                    </tr>
+                    
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background: #f8fafc; padding: 24px 40px; text-align: center; border-top: 1px solid #e2e8f0;">
+                            <p style="margin: 0; color: #94a3b8; font-size: 13px;">
+                                <strong style="color: #64748b;">GrabMyPass</strong> &bull; Event Registration Made Easy
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
 </body>
 </html>`;
 
-        // Encode the email
-        const subject = '✉️ GrabMyPass - Test Email Successful!';
+        // Encode the email - use ASCII-safe subject (no emojis to avoid encoding issues)
+        const subject = 'GrabMyPass - Test Email Successful';
         const rawEmail = Buffer.from(
-            `From: ${account.email}\r\n` +
+            `From: ${fromHeader}\r\n` +
             `To: ${account.email}\r\n` +
             `Subject: ${subject}\r\n` +
             `MIME-Version: 1.0\r\n` +
@@ -256,7 +345,7 @@ export const sendTestEmail = async (req: Request, res: Response) => {
         await EmailLog.create({
             userId,
             type: 'test',
-            fromEmail: account.email,
+            fromEmail: fromEmail,
             toEmail: account.email,
             toName: account.name,
             subject,

@@ -2,9 +2,13 @@ import mongoose from 'mongoose';
 
 const EmailAccountSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    email: { type: String, required: true },
+    email: { type: String, required: true }, // Gmail address
     name: { type: String }, // Display name for the account
-    provider: { type: String, enum: ['gmail'], default: 'gmail' },
+    provider: { type: String, enum: ['gmail', 'smtp'], default: 'gmail' },
+
+    // Custom domain "Send As" (optional)
+    customFromEmail: { type: String }, // e.g., hello@yourdomain.com
+    customFromName: { type: String },  // e.g., "GrabMyPass Events"
 
     // OAuth tokens (encrypted in production)
     accessToken: { type: String },
