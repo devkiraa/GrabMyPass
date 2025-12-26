@@ -162,3 +162,8 @@ apiRouter.get('/contacts/export', verifyToken, exportContacts);
 apiRouter.post('/contacts/email', verifyToken, sendBulkEmail);
 apiRouter.delete('/contacts/:contactId', verifyToken, deleteContact);
 
+// Wallet Integration
+import { getApplePass, getGoogleWalletLink } from '../controllers/walletController';
+
+apiRouter.get('/wallet/apple/:ticketId', getApplePass);
+apiRouter.get('/wallet/google/:ticketId', getGoogleWalletLink);
