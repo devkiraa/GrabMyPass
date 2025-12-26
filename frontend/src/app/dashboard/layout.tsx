@@ -16,7 +16,10 @@ import {
     Mail,
     FileText,
     CreditCard,
-    Contact
+    Contact,
+    ShieldCheck,
+    Menu,
+    X
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -26,6 +29,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [userEmail, setUserEmail] = useState('');
     const [hasCoordinatorEvents, setHasCoordinatorEvents] = useState(false);
     const [coordinatorCount, setCoordinatorCount] = useState(0);
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     useEffect(() => {
         // Parse token from URL (if redirected from Google Auth)
@@ -50,22 +55,33 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }
 
             // Check if user has any coordinated events
-            const checkCoordinatorEvents = async () => {
+            const checkUserStatus = async () => {
                 try {
-                    const res = await fetch(
+                    // Check Coordinator Status
+                    const coordRes = await fetch(
                         `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/coordinators/my-events`,
                         { headers: { 'Authorization': `Bearer ${token}` } }
                     );
-                    if (res.ok) {
-                        const events = await res.json();
+                    if (coordRes.ok) {
+                        const events = await coordRes.json();
                         setHasCoordinatorEvents(events.length > 0);
                         setCoordinatorCount(events.length);
                     }
+
+                    // Check Admin Status (fetch me)
+                    const meRes = await fetch(
+                        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/me`,
+                        { headers: { 'Authorization': `Bearer ${token}` } }
+                    );
+                    if (meRes.ok) {
+                        const me = await meRes.json();
+                        if (me.role === 'admin') setIsAdmin(true);
+                    }
                 } catch (e) {
-                    console.error('Failed to check coordinator events', e);
+                    console.error('Failed to check user status', e);
                 }
             };
-            checkCoordinatorEvents();
+            checkUserStatus();
         }
     }, [router]);
 
@@ -76,141 +92,335 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         { name: 'Analytics', href: '/dashboard/analytics', icon: TrendingUp },
     ];
 
+    const isAdminRoute = pathname.startsWith('/dashboard/admin');
+
     return (
         <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900 selection:bg-indigo-100">
             {/* Sidebar */}
-            <aside className="w-64 bg-white border-r border-slate-200 hidden md:flex flex-col fixed inset-y-0 z-50">
-                <div className="h-16 flex items-center px-6 border-b border-slate-100">
-                    <div className="flex items-center gap-2 text-indigo-600">
-                        <Ticket className="h-6 w-6" />
-                        <span className="font-bold text-xl tracking-tight text-slate-900">GrabMyPass</span>
+            <aside className={`w-64 ${isAdminRoute ? 'bg-slate-900' : 'bg-white'} border-r ${isAdminRoute ? 'border-slate-800' : 'border-slate-200'} hidden md:flex flex-col fixed inset-y-0 z-50`}>
+                <div className={`h-16 flex items-center px-6 border-b ${isAdminRoute ? 'border-slate-800' : 'border-slate-100'}`}>
+                    <div className={`flex items-center gap-2 ${isAdminRoute ? 'text-purple-400' : 'text-indigo-600'}`}>
+                        {isAdminRoute ? <ShieldCheck className="h-6 w-6" /> : <Ticket className="h-6 w-6" />}
+                        <span className={`font-bold text-xl tracking-tight ${isAdminRoute ? 'text-white' : 'text-slate-900'}`}>
+                            {isAdminRoute ? 'Admin Panel' : 'GrabMyPass'}
+                        </span>
                     </div>
                 </div>
 
-                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-                    {/* Main Navigation */}
-                    <div className="mb-2">
-                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">Main</span>
-                    </div>
-                    {navItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = pathname === item.href;
-                        return (
+                {isAdminRoute ? (
+                    /* ===== ADMIN SIDEBAR ===== */
+                    <>
+                        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                            <div className="mb-2">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">Admin</span>
+                            </div>
                             <Button
-                                key={item.href}
                                 variant="ghost"
-                                className={`w-full justify-start font-medium ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
-                                onClick={() => router.push(item.href)}
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin')}
                             >
-                                <Icon className="mr-3 h-5 w-5" />
-                                {item.name}
+                                <LayoutDashboard className="mr-3 h-5 w-5" />
+                                Overview
                             </Button>
-                        )
-                    })}
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/logs' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/logs')}
+                            >
+                                <FileText className="mr-3 h-5 w-5" />
+                                System Logs
+                            </Button>
 
-                    {/* Coordinator Section - Only visible if user is a coordinator */}
-                    {hasCoordinatorEvents && (
-                        <>
+                            <div className="pt-4 mt-4 border-t border-slate-800">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">Templates</span>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/email-templates' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/email-templates')}
+                            >
+                                <Mail className="mr-3 h-5 w-5" />
+                                Email Templates
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/ticket-templates' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/ticket-templates')}
+                            >
+                                <CreditCard className="mr-3 h-5 w-5" />
+                                Ticket Templates
+                            </Button>
+
+                            <div className="pt-4 mt-4 border-t border-slate-800">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">System</span>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/security' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/security')}
+                            >
+                                <Settings className="mr-3 h-5 w-5" />
+                                Security
+                            </Button>
+                        </nav>
+
+                        <div className="p-4 border-t border-slate-800 space-y-1">
+                            <Button
+                                variant="ghost"
+                                className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800"
+                                onClick={() => router.push('/dashboard')}
+                            >
+                                <ChevronRight className="mr-3 h-5 w-5 rotate-180" />
+                                Back to App
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                                onClick={() => { localStorage.removeItem('auth_token'); router.push('/login'); }}
+                            >
+                                <LogOut className="mr-3 h-5 w-5" />
+                                Logout
+                            </Button>
+                        </div>
+                    </>
+                ) : (
+                    /* ===== USER SIDEBAR ===== */
+                    <>
+                        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                            {/* Main Navigation */}
+                            <div className="mb-2">
+                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">Main</span>
+                            </div>
+                            {navItems.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = pathname === item.href;
+                                return (
+                                    <Button
+                                        key={item.href}
+                                        variant="ghost"
+                                        className={`w-full justify-start font-medium ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                        onClick={() => router.push(item.href)}
+                                    >
+                                        <Icon className="mr-3 h-5 w-5" />
+                                        {item.name}
+                                    </Button>
+                                )
+                            })}
+
+                            {/* Coordinator Section */}
+                            {hasCoordinatorEvents && (
+                                <>
+                                    <div className="pt-4 mt-4 border-t border-slate-100">
+                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
+                                            Coordinating
+                                        </span>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        className={`w-full justify-start font-medium ${pathname === '/dashboard/coordinator'
+                                            ? 'bg-purple-50 text-purple-700'
+                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                                            }`}
+                                        onClick={() => router.push('/dashboard/coordinator')}
+                                    >
+                                        <QrCode className="mr-3 h-5 w-5" />
+                                        Co-Events
+                                        <span className="ml-auto bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                                            {coordinatorCount}
+                                        </span>
+                                    </Button>
+                                </>
+                            )}
+
+                            {/* Communications Section */}
                             <div className="pt-4 mt-4 border-t border-slate-100">
                                 <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
-                                    Coordinating
+                                    Communications
                                 </span>
                             </div>
                             <Button
                                 variant="ghost"
-                                className={`w-full justify-start font-medium ${pathname === '/dashboard/coordinator'
-                                    ? 'bg-purple-50 text-purple-700'
-                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                                    }`}
-                                onClick={() => router.push('/dashboard/coordinator')}
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/emails' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                onClick={() => router.push('/dashboard/settings/emails')}
                             >
-                                <QrCode className="mr-3 h-5 w-5" />
-                                Co-Events
-                                <span className="ml-auto bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                                    {coordinatorCount}
-                                </span>
+                                <Mail className="mr-3 h-5 w-5" />
+                                Email Accounts
                             </Button>
-                        </>
-                    )}
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/email-templates' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                onClick={() => router.push('/dashboard/settings/email-templates')}
+                            >
+                                <FileText className="mr-3 h-5 w-5" />
+                                Email Templates
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/ticket-templates' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                onClick={() => router.push('/dashboard/settings/ticket-templates')}
+                            >
+                                <CreditCard className="mr-3 h-5 w-5" />
+                                Ticket Designer
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/contacts' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                onClick={() => router.push('/dashboard/contacts')}
+                            >
+                                <Contact className="mr-3 h-5 w-5" />
+                                Contacts
+                            </Button>
+                        </nav>
 
-                    {/* Communications Section */}
-                    <div className="pt-4 mt-4 border-t border-slate-100">
-                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
-                            Communications
-                        </span>
-                    </div>
-                    <Button
-                        variant="ghost"
-                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/emails'
-                            ? 'bg-indigo-50 text-indigo-700'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                            }`}
-                        onClick={() => router.push('/dashboard/settings/emails')}
-                    >
-                        <Mail className="mr-3 h-5 w-5" />
-                        Email Accounts
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/email-templates'
-                            ? 'bg-indigo-50 text-indigo-700'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                            }`}
-                        onClick={() => router.push('/dashboard/settings/email-templates')}
-                    >
-                        <FileText className="mr-3 h-5 w-5" />
-                        Email Templates
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/ticket-templates'
-                            ? 'bg-indigo-50 text-indigo-700'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                            }`}
-                        onClick={() => router.push('/dashboard/settings/ticket-templates')}
-                    >
-                        <CreditCard className="mr-3 h-5 w-5" />
-                        Ticket Designer
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        className={`w-full justify-start font-medium ${pathname === '/dashboard/contacts'
-                            ? 'bg-indigo-50 text-indigo-700'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                            }`}
-                        onClick={() => router.push('/dashboard/contacts')}
-                    >
-                        <Contact className="mr-3 h-5 w-5" />
-                        Contacts
-                    </Button>
-                </nav>
+                        <div className="p-4 border-t border-slate-100 space-y-1">
+                            {/* Admin Link for admin users */}
+                            {isAdmin && (
+                                <Button
+                                    variant="ghost"
+                                    className="w-full justify-start font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 mb-2"
+                                    onClick={() => router.push('/dashboard/admin')}
+                                >
+                                    <ShieldCheck className="mr-3 h-5 w-5" />
+                                    Admin Panel
+                                </Button>
+                            )}
 
-                <div className="p-4 border-t border-slate-100 space-y-1">
-                    <Button
-                        variant="ghost"
-                        className={`w-full justify-start font-medium ${pathname === '/dashboard/settings' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
-                        onClick={() => router.push('/dashboard/settings')}
-                    >
-                        <Settings className="mr-3 h-5 w-5" />
-                        Settings
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => { localStorage.removeItem('auth_token'); router.push('/login'); }}
-                    >
-                        <LogOut className="mr-3 h-5 w-5" />
-                        Logout
-                    </Button>
-                </div>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/settings' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                onClick={() => router.push('/dashboard/settings')}
+                            >
+                                <Settings className="mr-3 h-5 w-5" />
+                                Settings
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => { localStorage.removeItem('auth_token'); router.push('/login'); }}
+                            >
+                                <LogOut className="mr-3 h-5 w-5" />
+                                Logout
+                            </Button>
+                        </div>
+                    </>
+                )}
             </aside>
+
+            {/* Mobile Menu Overlay */}
+            {mobileMenuOpen && (
+                <div className="fixed inset-0 z-50 md:hidden">
+                    {/* Backdrop */}
+                    <div className="fixed inset-0 bg-black/50" onClick={() => setMobileMenuOpen(false)} />
+
+                    {/* Drawer */}
+                    <aside className={`fixed inset-y-0 left-0 w-72 ${isAdminRoute ? 'bg-slate-900' : 'bg-white'} shadow-xl flex flex-col`}>
+                        <div className={`h-16 flex items-center justify-between px-6 border-b ${isAdminRoute ? 'border-slate-800' : 'border-slate-100'}`}>
+                            <div className={`flex items-center gap-2 ${isAdminRoute ? 'text-purple-400' : 'text-indigo-600'}`}>
+                                {isAdminRoute ? <ShieldCheck className="h-6 w-6" /> : <Ticket className="h-6 w-6" />}
+                                <span className={`font-bold text-xl tracking-tight ${isAdminRoute ? 'text-white' : 'text-slate-900'}`}>
+                                    {isAdminRoute ? 'Admin Panel' : 'GrabMyPass'}
+                                </span>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)} className={isAdminRoute ? 'text-slate-400 hover:text-white' : ''}>
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+
+                        {isAdminRoute ? (
+                            /* Mobile Admin Sidebar */
+                            <>
+                                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                                    <div className="mb-2">
+                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">Admin</span>
+                                    </div>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin'); setMobileMenuOpen(false); }}>
+                                        <LayoutDashboard className="mr-3 h-5 w-5" /> Overview
+                                    </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/logs' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/logs'); setMobileMenuOpen(false); }}>
+                                        <FileText className="mr-3 h-5 w-5" /> System Logs
+                                    </Button>
+                                    <div className="pt-4 mt-4 border-t border-slate-800">
+                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">Templates</span>
+                                    </div>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/email-templates' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/email-templates'); setMobileMenuOpen(false); }}>
+                                        <Mail className="mr-3 h-5 w-5" /> Email Templates
+                                    </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/ticket-templates' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/ticket-templates'); setMobileMenuOpen(false); }}>
+                                        <CreditCard className="mr-3 h-5 w-5" /> Ticket Templates
+                                    </Button>
+                                    <div className="pt-4 mt-4 border-t border-slate-800">
+                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">System</span>
+                                    </div>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/security' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/security'); setMobileMenuOpen(false); }}>
+                                        <Settings className="mr-3 h-5 w-5" /> Security
+                                    </Button>
+                                </nav>
+                                <div className="p-4 border-t border-slate-800 space-y-1">
+                                    <Button variant="ghost" className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800" onClick={() => { router.push('/dashboard'); setMobileMenuOpen(false); }}>
+                                        <ChevronRight className="mr-3 h-5 w-5 rotate-180" /> Back to App
+                                    </Button>
+                                    <Button variant="ghost" className="w-full justify-start text-red-400 hover:text-red-300 hover:bg-red-900/20" onClick={() => { localStorage.removeItem('auth_token'); router.push('/login'); }}>
+                                        <LogOut className="mr-3 h-5 w-5" /> Logout
+                                    </Button>
+                                </div>
+                            </>
+                        ) : (
+                            /* Mobile User Sidebar */
+                            <>
+                                <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                                    <div className="mb-2">
+                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">Main</span>
+                                    </div>
+                                    {navItems.map((item) => {
+                                        const Icon = item.icon;
+                                        const isActive = pathname === item.href;
+                                        return (
+                                            <Button key={item.href} variant="ghost" className={`w-full justify-start font-medium ${isActive ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push(item.href); setMobileMenuOpen(false); }}>
+                                                <Icon className="mr-3 h-5 w-5" /> {item.name}
+                                            </Button>
+                                        );
+                                    })}
+                                    <div className="pt-4 mt-4 border-t border-slate-100">
+                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">Communications</span>
+                                    </div>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/emails' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/settings/emails'); setMobileMenuOpen(false); }}>
+                                        <Mail className="mr-3 h-5 w-5" /> Email Accounts
+                                    </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/contacts' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/contacts'); setMobileMenuOpen(false); }}>
+                                        <Contact className="mr-3 h-5 w-5" /> Contacts
+                                    </Button>
+                                </nav>
+                                <div className="p-4 border-t border-slate-100 space-y-1">
+                                    {isAdmin && (
+                                        <Button variant="ghost" className="w-full justify-start font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 mb-2" onClick={() => { router.push('/dashboard/admin'); setMobileMenuOpen(false); }}>
+                                            <ShieldCheck className="mr-3 h-5 w-5" /> Admin Panel
+                                        </Button>
+                                    )}
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/settings' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/settings'); setMobileMenuOpen(false); }}>
+                                        <Settings className="mr-3 h-5 w-5" /> Settings
+                                    </Button>
+                                    <Button variant="ghost" className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => { localStorage.removeItem('auth_token'); router.push('/login'); }}>
+                                        <LogOut className="mr-3 h-5 w-5" /> Logout
+                                    </Button>
+                                </div>
+                            </>
+                        )}
+                    </aside>
+                </div>
+            )}
 
             {/* Main Content Wrapper */}
             <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
                 {/* Header */}
                 <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between shrink-0">
-                    <div className="flex items-center md:hidden">
-                        <Ticket className="h-6 w-6 text-indigo-600" />
+                    <div className="flex items-center gap-3 md:hidden">
+                        <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(true)}>
+                            <Menu className="h-6 w-6 text-slate-600" />
+                        </Button>
+                        <div className={`flex items-center gap-2 ${isAdminRoute ? 'text-purple-600' : 'text-indigo-600'}`}>
+                            {isAdminRoute ? <ShieldCheck className="h-5 w-5" /> : <Ticket className="h-5 w-5" />}
+                            <span className="font-bold text-sm">{isAdminRoute ? 'Admin' : 'GrabMyPass'}</span>
+                        </div>
                     </div>
 
                     <div className="hidden md:flex items-center text-slate-500 text-sm">

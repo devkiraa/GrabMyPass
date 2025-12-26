@@ -7,15 +7,24 @@ import morgan from 'morgan';
 import figlet from 'figlet';
 import { authRouter } from './routes/auth';
 import { apiRouter } from './routes/api';
+import { adminRouter } from './routes/admin';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+import fs from 'fs';
+import path from 'path';
+
 // Middleware
+const accessLogStream = fs.createWriteStream(path.join(__dirname, '../logs/access.log'), { flags: 'a' });
 morgan.token('time', () => new Date().toLocaleString());
+
+// Log to Console
 app.use(morgan('[:time] :method :status :response-time ms :url'));
+// Log to File
+app.use(morgan('[:time] :method :status :response-time ms :url', { stream: accessLogStream }));
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true
@@ -33,6 +42,7 @@ mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/grabmypass'
 app.get('/', (req, res) => res.send('GrabMyPass API Running'));
 app.use('/api/auth', authRouter);
 app.use('/api', apiRouter);
+app.use('/api/admin', adminRouter);
 
 // Start Server
 app.listen(PORT, () => {

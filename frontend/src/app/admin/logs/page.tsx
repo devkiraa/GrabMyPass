@@ -1,0 +1,98 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { RefreshCw, Trash2, Terminal } from 'lucide-react';
+
+export default function LogsPage() {
+    const [logs, setLogs] = useState<string[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    const fetchLogs = async () => {
+        setLoading(true);
+        const token = localStorage.getItem('auth_token');
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/logs`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setLogs(data.logs);
+            }
+        } catch (error) {
+            console.error('Failed to fetch logs', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const clearLogs = async () => {
+        if (!confirm('Are you sure you want to clear the logs?')) return;
+        const token = localStorage.getItem('auth_token');
+        try {
+            await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/admin/logs`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            fetchLogs();
+        } catch (error) {
+            console.error('Failed to clear logs', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchLogs();
+    }, []);
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">System Logs</h1>
+                    <p className="text-slate-500">View and manage server access logs.</p>
+                </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={fetchLogs} disabled={loading}>
+                        <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                        Refresh
+                    </Button>
+                    <Button variant="destructive" onClick={clearLogs}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Clear Logs
+                    </Button>
+                </div>
+            </div>
+
+            <Card className="bg-slate-950 border-slate-800 text-slate-300">
+                <CardHeader className="border-b border-slate-900 pb-3">
+                    <div className="flex items-center gap-2">
+                        <Terminal className="h-5 w-5 text-green-500" />
+                        <CardTitle className="text-slate-200">Server Console</CardTitle>
+                    </div>
+                    <CardDescription className="text-slate-500">Showing last 100 entries</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="p-4 font-mono text-xs md:text-sm h-[600px] overflow-auto hover:overflow-y-scroll scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+                        {loading && logs.length === 0 ? (
+                            <div className="text-slate-500 animate-pulse">Loading logs...</div>
+                        ) : logs.length === 0 ? (
+                            <div className="text-slate-500 italic">No logs found.</div>
+                        ) : (
+                            <div className="space-y-1">
+                                {logs.map((log, i) => (
+                                    <div key={i} className="whitespace-pre-wrap break-all border-b border-slate-900/50 pb-1 mb-1 last:border-0">
+                                        <span className="text-slate-500 mr-2">{(logs.length - i).toString().padStart(3, '0')}</span>
+                                        <span className={log.includes(' 500 ') || log.includes(' 404 ') ? 'text-red-400' : 'text-slate-300'}>
+                                            {log}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
