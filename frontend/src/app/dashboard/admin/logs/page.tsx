@@ -79,15 +79,57 @@ export default function LogsPage() {
                         ) : logs.length === 0 ? (
                             <div className="text-slate-500 italic">No logs found.</div>
                         ) : (
-                            <div className="space-y-1">
-                                {logs.map((log, i) => (
-                                    <div key={i} className="whitespace-pre-wrap break-all border-b border-slate-900/50 pb-1 mb-1 last:border-0">
-                                        <span className="text-slate-500 mr-2">{(logs.length - i).toString().padStart(3, '0')}</span>
-                                        <span className={log.includes(' 500 ') || log.includes(' 404 ') ? 'text-red-400' : 'text-slate-300'}>
-                                            {log}
-                                        </span>
-                                    </div>
-                                ))}
+                            <div className="space-y-0.5">
+                                {logs.map((log, i) => {
+                                    // Morgan 'dev' format usually looks like: GET /api/admin/logs 200 4.123 ms - 1234
+                                    // Let's highlight specific parts
+                                    const parts = log.split(' ');
+
+                                    return (
+                                        <div key={i} className="flex gap-2 whitespace-pre font-mono py-0.5 border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                                            <span className="text-slate-600 w-8 shrink-0">{(logs.length - i).toString().padStart(3, '0')}</span>
+                                            <div className="flex flex-wrap gap-x-2">
+                                                {parts.map((part, pi) => {
+                                                    // Status code check (3 digits)
+                                                    if (/^\d{3}$/.test(part)) {
+                                                        const status = parseInt(part);
+                                                        let color = 'text-slate-300';
+                                                        if (status >= 500) color = 'text-red-500 font-bold';
+                                                        else if (status >= 400) color = 'text-amber-500 font-bold';
+                                                        else if (status >= 300) color = 'text-blue-400';
+                                                        else if (status >= 200) color = 'text-emerald-500 font-bold';
+                                                        return <span key={pi} className={color}>{part}</span>;
+                                                    }
+
+                                                    // HTTP Method check
+                                                    if (['GET', 'POST', 'PATCH', 'DELETE', 'PUT'].includes(part)) {
+                                                        let mColor = 'text-slate-400';
+                                                        if (part === 'GET') mColor = 'text-sky-400';
+                                                        if (part === 'POST') mColor = 'text-indigo-400';
+                                                        if (part === 'PATCH') mColor = 'text-yellow-400';
+                                                        if (part === 'DELETE') mColor = 'text-rose-400';
+                                                        return <span key={pi} className={`${mColor} font-bold`}>{part}</span>;
+                                                    }
+
+                                                    // Path segments
+                                                    if (part.startsWith('/')) {
+                                                        return <span key={pi} className="text-slate-400">{part}</span>;
+                                                    }
+
+                                                    // Timing
+                                                    if (part === 'ms') {
+                                                        return <span key={pi} className="text-slate-600">{part}</span>;
+                                                    }
+                                                    if (!isNaN(parseFloat(part)) && parts[pi + 1] === 'ms') {
+                                                        return <span key={pi} className="text-slate-500">{part}</span>;
+                                                    }
+
+                                                    return <span key={pi} className="text-slate-300">{part}</span>;
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

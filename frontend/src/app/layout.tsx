@@ -14,6 +14,8 @@ export const metadata: Metadata = {
   description: "Secure, reliable, and open-source event ticketing.",
 };
 
+import { Toaster } from "@/components/ui/toaster";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -28,6 +30,7 @@ export default function RootLayout({
         )}
       >
         {children}
+        <Toaster />
       </body>
     </html >
   );

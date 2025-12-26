@@ -19,7 +19,8 @@ import {
     Contact,
     ShieldCheck,
     Menu,
-    X
+    X,
+    Ghost
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -31,6 +32,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const [coordinatorCount, setCoordinatorCount] = useState(0);
     const [isAdmin, setIsAdmin] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [isImpersonating, setIsImpersonating] = useState(false);
+
+    const stopImpersonating = () => {
+        const adminToken = localStorage.getItem('admin_token');
+        if (adminToken) {
+            localStorage.setItem('auth_token', adminToken);
+            localStorage.removeItem('admin_token');
+            setIsImpersonating(false);
+            window.location.href = '/dashboard/admin/users';
+        }
+    };
 
     useEffect(() => {
         // Parse token from URL (if redirected from Google Auth)
@@ -50,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             try {
                 const userPayload = JSON.parse(atob(token.split('.')[1]));
                 setUserEmail(userPayload.email);
+                setIsImpersonating(!!localStorage.getItem('admin_token'));
             } catch (e) {
                 // ignore
             }
@@ -121,6 +134,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             >
                                 <LayoutDashboard className="mr-3 h-5 w-5" />
                                 Overview
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/users' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/users')}
+                            >
+                                <Users className="mr-3 h-5 w-5" />
+                                Users
                             </Button>
                             <Button
                                 variant="ghost"
@@ -336,6 +357,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin'); setMobileMenuOpen(false); }}>
                                         <LayoutDashboard className="mr-3 h-5 w-5" /> Overview
                                     </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/users' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/users'); setMobileMenuOpen(false); }}>
+                                        <Users className="mr-3 h-5 w-5" /> Users
+                                    </Button>
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/logs' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/logs'); setMobileMenuOpen(false); }}>
                                         <FileText className="mr-3 h-5 w-5" /> System Logs
                                     </Button>
@@ -411,6 +435,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Main Content Wrapper */}
             <main className="flex-1 md:ml-64 flex flex-col min-h-screen">
+                {isImpersonating && (
+                    <div className="bg-amber-500 text-white px-4 py-2 flex items-center justify-between text-sm font-medium sticky top-0 z-[60]">
+                        <div className="flex items-center gap-2">
+                            <Ghost className="h-4 w-4" />
+                            <span>Viewing platform as <b>{userEmail}</b> (Impersonation Mode)</span>
+                        </div>
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="bg-white text-amber-600 hover:bg-amber-50 h-8"
+                            onClick={stopImpersonating}
+                        >
+                            Stop Impersonating
+                        </Button>
+                    </div>
+                )}
                 {/* Header */}
                 <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-40 px-4 md:px-8 flex items-center justify-between shrink-0">
                     <div className="flex items-center gap-3 md:hidden">

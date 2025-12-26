@@ -44,6 +44,160 @@ export const runSystemHealthCheck = async (req: Request, res: Response) => {
 };
 
 
+import jwt from 'jsonwebtoken';
+import { AuditLog } from '../models/AuditLog';
+
+// Get paginated and filtered users
+export const getAllUsers = async (req: Request, res: Response) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const search = req.query.search as string || '';
+        const role = req.query.role as string || '';
+        const status = req.query.status as string || '';
+        const sortBy = req.query.sortBy as string || 'createdAt';
+        const order = req.query.order === 'asc' ? 1 : -1;
+
+        const skip = (page - 1) * limit;
+
+        let query: any = {};
+
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { username: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        if (role) query.role = role;
+        // @ts-ignore
+        if (status) query.status = status;
+
+        const total = await User.countDocuments(query);
+        const users = await User.find(query)
+            .sort({ [sortBy]: order })
+            .skip(skip)
+            .limit(limit)
+            .select('-password -smtpConfig');
+
+        res.json({
+            users,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        console.error('Fetch users error:', error);
+        res.status(500).json({ message: 'Failed to fetch users' });
+    }
+};
+
+// Update User Role
+export const updateUserRole = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const { role } = req.body;
+
+        if (!['admin', 'host', 'helper'].includes(role)) {
+            return res.status(400).json({ message: 'Invalid role' });
+        }
+
+        const user = await User.findByIdAndUpdate(userId, { role }, { new: true });
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Audit Log
+        await AuditLog.create({
+            // @ts-ignore
+            adminId: req.user.id,
+            action: 'UPDATE_ROLE',
+            targetId: userId,
+            details: { role },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        res.json({ message: `Role updated to ${role}`, user });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to update role' });
+    }
+};
+
+// Toggle Suspension
+export const toggleUserStatus = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const { status, reason } = req.body;
+
+        if (!['active', 'suspended'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status' });
+        }
+
+        const user = await User.findByIdAndUpdate(userId, {
+            status,
+            suspensionReason: status === 'suspended' ? reason : null
+        }, { new: true });
+
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // Audit Log
+        await AuditLog.create({
+            // @ts-ignore
+            adminId: req.user.id,
+            action: status === 'suspended' ? 'SUSPEND_USER' : 'UNSUSPEND_USER',
+            targetId: userId,
+            details: { reason },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        res.json({ message: `User ${status}`, user });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to update user status' });
+    }
+};
+
+// Impersonate User
+export const impersonateUser = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const targetUser = await User.findById(userId);
+
+        if (!targetUser) return res.status(404).json({ message: 'User not found' });
+        // @ts-ignore
+        if (targetUser.role === 'admin') {
+            return res.status(403).json({ message: 'Cannot impersonate another admin' });
+        }
+
+        // Audit Log
+        await AuditLog.create({
+            // @ts-ignore
+            adminId: req.user.id,
+            action: 'IMPERSONATE',
+            targetId: userId,
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        // Generate a new token for the target user
+        const token = jwt.sign(
+            {
+                email: targetUser.email,
+                id: targetUser._id,
+                role: targetUser.role,
+                isImpersonated: true,
+                // @ts-ignore
+                adminId: req.user.id
+            },
+            process.env.JWT_SECRET || 'test_secret',
+            { expiresIn: '2h' } // Shorter duration for impersonation sessions
+        );
+
+        res.json({ token, user: targetUser });
+    } catch (error) {
+        res.status(500).json({ message: 'Impersonation failed' });
+    }
+};
 
 export const getServerLogs = async (req: Request, res: Response) => {
     try {
@@ -73,3 +227,4 @@ export const clearServerLogs = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to clear logs' });
     }
 };
+

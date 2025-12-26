@@ -290,6 +290,16 @@ export const login = async (req: Request, res: Response) => {
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
         if (!isPasswordCorrect) return res.status(400).json({ message: 'Invalid credentials' });
 
+        // Check if user is suspended
+        // @ts-ignore
+        if (user.status === 'suspended') {
+            return res.status(403).json({
+                message: 'Your account has been suspended.',
+                // @ts-ignore
+                reason: user.suspensionReason
+            });
+        }
+
         // Create Session
         const session = await createSession(user._id.toString(), req);
 

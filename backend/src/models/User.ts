@@ -8,6 +8,8 @@ const UserSchema = new mongoose.Schema({
     googleId: { type: String }, // For Google Auth
     googleAvatar: { type: String }, // Google profile picture URL (stored separately)
     role: { type: String, enum: ['admin', 'host', 'helper'], default: 'host' },
+    status: { type: String, enum: ['active', 'suspended'], default: 'active' },
+    suspensionReason: { type: String },
     avatar: { type: String }, // URL or Base64
     banner: { type: String }, // URL or Base64 for profile banner
     socials: {
