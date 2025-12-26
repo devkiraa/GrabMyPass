@@ -20,9 +20,6 @@ export default function EditEventPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
 
-    // UI State
-    const [noDate, setNoDate] = useState(false);
-
     const [formData, setFormData] = useState({
         title: '',
         date: '',
@@ -38,7 +35,10 @@ export default function EditEventPage() {
         sendConfirmationEmail: true,
         // Ticket configuration
         ticketTemplateId: '',
-        attachTicket: true
+        attachTicket: true,
+        // Waitlist & Approval
+        waitlistEnabled: false,
+        approvalRequired: false
     });
 
     // Templates
@@ -62,8 +62,6 @@ export default function EditEventPage() {
                         if (event.date) {
                             const d = new Date(event.date);
                             formattedDate = d.toISOString().slice(0, 16);
-                        } else {
-                            setNoDate(true);
                         }
 
                         setFormData({
@@ -79,7 +77,10 @@ export default function EditEventPage() {
                             emailTemplateId: event.emailTemplateId || '',
                             sendConfirmationEmail: event.sendConfirmationEmail !== false,
                             ticketTemplateId: event.ticketTemplateId || '',
-                            attachTicket: event.attachTicket !== false
+                            attachTicket: event.attachTicket !== false,
+                            // Waitlist & Approval
+                            waitlistEnabled: event.waitlistEnabled || false,
+                            approvalRequired: event.approvalRequired || false
                         });
                     } else {
                         setError('Event not found');
@@ -129,7 +130,7 @@ export default function EditEventPage() {
         try {
             const payload = {
                 ...formData,
-                date: noDate ? null : (formData.date ? new Date(formData.date).toISOString() : null)
+                date: formData.date ? new Date(formData.date).toISOString() : null
             };
 
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/events/update/${eventId}`, {
@@ -213,28 +214,14 @@ export default function EditEventPage() {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <div className="flex items-center justify-between">
-                                        <Label htmlFor="date">Date & Time</Label>
-                                        <div className="flex items-center gap-2">
-                                            <Switch
-                                                checked={noDate}
-                                                onCheckedChange={setNoDate}
-                                                id="no-date-mode"
-                                            />
-                                            <Label htmlFor="no-date-mode" className="text-xs font-normal text-slate-500">
-                                                No specific time
-                                            </Label>
-                                        </div>
-                                    </div>
+                                    <Label htmlFor="date">Date & Time</Label>
                                     <Input
                                         id="date"
                                         name="date"
                                         type="datetime-local"
                                         value={formData.date}
                                         onChange={handleChange}
-                                        required={!noDate}
-                                        disabled={noDate}
-                                        title={noDate ? "Date is hidden" : "Event Date"}
+                                        required
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -315,6 +302,66 @@ export default function EditEventPage() {
                                 >
                                     <span
                                         className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.allowMultipleRegistrations ? 'translate-x-6' : 'translate-x-1'
+                                            }`}
+                                    />
+                                </button>
+                            </div>
+
+                            {/* Waitlist Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-amber-50 rounded-lg border border-amber-100">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base cursor-pointer">
+                                        Enable Waitlist
+                                    </Label>
+                                    <p className="text-xs text-amber-700">
+                                        {formData.waitlistEnabled
+                                            ? 'Users can join waitlist when event is full'
+                                            : 'Registration closes when limit is reached'}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={formData.waitlistEnabled}
+                                    onClick={() => setFormData(prev => ({
+                                        ...prev,
+                                        waitlistEnabled: !prev.waitlistEnabled
+                                    }))}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.waitlistEnabled ? 'bg-amber-500' : 'bg-slate-300'
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.waitlistEnabled ? 'translate-x-6' : 'translate-x-1'
+                                            }`}
+                                    />
+                                </button>
+                            </div>
+
+                            {/* Approval Required Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-100">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base cursor-pointer">
+                                        Require Approval
+                                    </Label>
+                                    <p className="text-xs text-blue-700">
+                                        {formData.approvalRequired
+                                            ? 'You must approve each registration before ticket is issued'
+                                            : 'Tickets are issued automatically upon registration'}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    role="switch"
+                                    aria-checked={formData.approvalRequired}
+                                    onClick={() => setFormData(prev => ({
+                                        ...prev,
+                                        approvalRequired: !prev.approvalRequired
+                                    }))}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.approvalRequired ? 'bg-blue-500' : 'bg-slate-300'
+                                        }`}
+                                >
+                                    <span
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.approvalRequired ? 'translate-x-6' : 'translate-x-1'
                                             }`}
                                     />
                                 </button>

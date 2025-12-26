@@ -1,6 +1,6 @@
 import express from 'express';
 import { createEvent, getEvent, getMyEvents, updateEvent, checkEventSlug } from '../controllers/eventController';
-import { registerTicket, validateTicket, getEventAttendees, checkRegistration } from '../controllers/ticketController';
+import { registerTicket, validateTicket, getEventAttendees, checkRegistration, approveTicket, rejectTicket, getPendingTickets } from '../controllers/ticketController';
 import { verifyToken } from '../middleware/auth';
 import { googleAuthRedirect, googleAuthCallback, getProfile, getSessions, revokeSession, updateProfile, checkUsernameAvailability } from '../controllers/authController';
 import { getPublicUserProfile } from '../controllers/userController';
@@ -45,6 +45,9 @@ apiRouter.post('/events/:eventId/register', registerTicket);
 apiRouter.get('/events/:eventId/check-registration', checkRegistration); // Check if email already registered
 apiRouter.get('/events/:eventId/attendees', verifyToken, getEventAttendees);
 apiRouter.get('/events/:eventId/coordinators', verifyToken, getEventCoordinators); // Get coordinators for event
+apiRouter.get('/events/:eventId/pending-tickets', verifyToken, getPendingTickets); // Get pending/waitlisted tickets
+apiRouter.post('/tickets/:ticketId/approve', verifyToken, approveTicket); // Approve a pending ticket
+apiRouter.post('/tickets/:ticketId/reject', verifyToken, rejectTicket); // Reject a pending ticket
 
 // Public Event Page (LAST - catch-all pattern)
 apiRouter.get('/events/:username/:slug', getEvent);

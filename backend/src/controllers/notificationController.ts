@@ -125,7 +125,7 @@ export const getUnreadCount = async (req: Request, res: Response) => {
 // Helper function to create notification (used internally)
 export const createNotification = async (data: {
     userId: string;
-    type: 'registration' | 'check_in' | 'event_update' | 'coordinator_invite' | 'system';
+    type: 'registration' | 'check_in' | 'event_update' | 'coordinator_invite' | 'system' | 'waitlist' | 'approval';
     title: string;
     message: string;
     eventId?: string;

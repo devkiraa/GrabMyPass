@@ -22,9 +22,11 @@ export default function PublicEventPage() {
     const [success, setSuccess] = useState(false);
     const [ticket, setTicket] = useState<any>(null);
     const [error, setError] = useState('');
+    const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+    const [existingTicket, setExistingTicket] = useState<any>(null);
 
     // Flow State
-    const [step, setStep] = useState(1); // 1: Email, 2: Form, 3: Success
+    const [step, setStep] = useState(1); // 1: Email, 2: Form, 3: Success, 4: Already Registered
     const [userEmail, setUserEmail] = useState('');
     const [userProfile, setUserProfile] = useState<{ name?: string; avatar?: string; email?: string } | null>(null);
 
@@ -133,7 +135,10 @@ export default function PublicEventPage() {
             if (res.ok) {
                 const data = await res.json();
                 if (data.alreadyRegistered) {
-                    setError('You have already registered for this event with this email address.');
+                    // Show friendly "Already Registered" screen instead of error
+                    setExistingTicket(data.ticket || null);
+                    setAlreadyRegistered(true);
+                    setStep(4); // New step for already registered
                     return true;
                 }
             }
@@ -525,6 +530,107 @@ export default function PublicEventPage() {
         </div>
     );
 
+    // Already Registered View
+    if (alreadyRegistered && step === 4) return (
+        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 flex items-center justify-center p-4">
+            <div className="max-w-md w-full">
+                <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-amber-100">
+                    {/* Header */}
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-8 py-8 text-center">
+                        <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 className="w-10 h-10 text-white" />
+                        </div>
+                        <h1 className="text-2xl font-bold text-white mb-2">Already Registered!</h1>
+                        <p className="text-amber-100 text-sm">You&apos;ve already secured your spot for this event</p>
+                    </div>
+
+                    {/* Content */}
+                    <div className="p-8">
+                        {/* Event Info */}
+                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-5 mb-6 border border-amber-100">
+                            <h3 className="font-bold text-slate-900 text-lg mb-3">{event?.title}</h3>
+                            <div className="space-y-2 text-sm text-slate-600">
+                                {event?.date && (
+                                    <div className="flex items-center gap-1.5">
+                                        <Calendar className="w-4 h-4 text-amber-600" />
+                                        <span>{new Date(event.date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                                    </div>
+                                )}
+                                {event?.location && (
+                                    <div className="flex items-center gap-1.5">
+                                        <MapPin className="w-4 h-4 text-amber-600" />
+                                        <span>{event.location}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Registered Email */}
+                        <div className="space-y-3 mb-6">
+                            <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                                <span className="text-slate-500 text-sm">Registered email</span>
+                                <span className="font-medium text-slate-900 text-sm">{userEmail}</span>
+                            </div>
+                            {existingTicket?.qrCodeHash && (
+                                <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                                    <span className="text-slate-500 text-sm">Ticket Code</span>
+                                    <span className="font-mono font-bold text-amber-600 text-sm">
+                                        TKT-{existingTicket.qrCodeHash.substring(0, 8).toUpperCase()}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="flex items-center justify-between py-3 border-b border-slate-100">
+                                <span className="text-slate-500 text-sm">Status</span>
+                                <span className="inline-flex items-center gap-1.5 text-emerald-600 text-sm font-medium">
+                                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
+                                    Confirmed
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="space-y-3">
+                            <Button
+                                className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-xl transition-all"
+                                onClick={() => {
+                                    setAlreadyRegistered(false);
+                                    setExistingTicket(null);
+                                    setUserEmail('');
+                                    setStep(1);
+                                    setError('');
+                                }}
+                            >
+                                <Users className="w-4 h-4 mr-2" />
+                                Register Another Person
+                            </Button>
+
+                            <Button
+                                variant="outline"
+                                className="w-full h-12 border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50"
+                                onClick={() => window.location.href = '/'}
+                            >
+                                Back to Home
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-8 py-4 bg-amber-50 border-t border-amber-100">
+                        <div className="flex items-center justify-center gap-2 text-amber-600 text-xs">
+                            <Mail className="w-3.5 h-3.5" />
+                            <span>Your ticket was sent to your email</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Powered by */}
+                <p className="text-center text-slate-400 text-sm mt-6">
+                    Powered by <span className="font-semibold text-slate-600">GrabMyPass</span>
+                </p>
+            </div>
+        </div>
+    );
+
     return (
         <div className="min-h-screen flex flex-col lg:flex-row bg-white selection:bg-[#00CC68]/20">
 
@@ -588,9 +694,9 @@ export default function PublicEventPage() {
                         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <div className="space-y-4">
                                 <div className="space-y-2">
-                                    <h2 className="text-3xl font-bold text-[#303030]">{event.price && event.price > 0 ? 'Secure your ticket' : 'Secure your spot'}</h2>
+                                    <h2 className="text-3xl font-bold text-[#303030]">{event.price > 0 ? 'Secure your ticket' : 'Secure your spot'}</h2>
                                     <p className="text-gray-500 text-lg">
-                                        {event.price && event.price > 0 ? 'Please login to purchase.' : 'Enter your email to begin.'}
+                                        {event.price > 0 ? 'Please login to purchase.' : 'Enter your email to begin.'}
                                     </p>
                                 </div>
 
@@ -611,7 +717,7 @@ export default function PublicEventPage() {
                                     </div>
                                 )}
 
-                                {event.price && event.price > 0 && (
+                                {event.price > 0 && (
                                     <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 flex items-center justify-between">
                                         <div>
                                             <p className="text-sm text-indigo-700 font-medium">Ticket Price</p>
@@ -622,7 +728,7 @@ export default function PublicEventPage() {
                                 )}
 
                                 {/* If Paid and Not Logged In, force Google Login */}
-                                {event.price && event.price > 0 && !isLoggedIn ? (
+                                {event.price > 0 && !isLoggedIn ? (
                                     <div className="space-y-4">
                                         <a href={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/auth/google?returnUrl=${encodeURIComponent(pathname)}`}>
                                             <Button variant="outline" className="w-full h-14 bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300 text-gray-700 font-medium transition-all text-lg">

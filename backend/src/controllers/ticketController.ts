@@ -21,15 +21,23 @@ export const registerTicket = async (req: Request, res: Response) => {
         }
 
         // Check registration limit
+        let isEventFull = false;
         if (event.maxRegistrations && event.maxRegistrations > 0) {
-            const currentCount = await Ticket.countDocuments({ eventId });
+            // Count only confirmed tickets (not waitlisted)
+            const currentCount = await Ticket.countDocuments({ eventId, waitlist: { $ne: true } });
             if (currentCount >= event.maxRegistrations) {
-                // Auto-close the event
-                await Event.findByIdAndUpdate(eventId, { status: 'closed' });
-                return res.status(400).json({
-                    message: 'Registration is full. Maximum limit reached.',
-                    limitReached: true
-                });
+                isEventFull = true;
+
+                // If waitlist is NOT enabled, reject registration
+                if (!event.waitlistEnabled) {
+                    // Auto-close the event
+                    await Event.findByIdAndUpdate(eventId, { status: 'closed' });
+                    return res.status(400).json({
+                        message: 'Registration is full. Maximum limit reached.',
+                        limitReached: true
+                    });
+                }
+                // If waitlist IS enabled, we'll continue and add to waitlist below
             }
         }
 
@@ -111,6 +119,22 @@ export const registerTicket = async (req: Request, res: Response) => {
             }
         }
 
+        // Determine ticket status based on waitlist and approval settings
+        let ticketStatus = 'issued';
+        let isWaitlisted = false;
+        let isApproved = true;
+
+        if (isEventFull && event.waitlistEnabled) {
+            // Add to waitlist
+            isWaitlisted = true;
+            ticketStatus = 'waitlisted';
+            isApproved = !event.approvalRequired; // If approval also required, keep unapproved
+        } else if (event.approvalRequired) {
+            // Needs approval before ticket is issued
+            isApproved = false;
+            ticketStatus = 'pending';
+        }
+
         const ticket = await Ticket.create({
             eventId,
             userId: userId, // Link to user if available
@@ -119,46 +143,74 @@ export const registerTicket = async (req: Request, res: Response) => {
             guestEmail,
             pricePaid,
             paymentStatus,
-            qrCodeHash
+            qrCodeHash,
+            // New fields
+            waitlist: isWaitlisted,
+            approved: isApproved,
+            status: ticketStatus
         });
 
-        // Send confirmation email directly (no queue needed)
-        sendTicketEmail({
-            eventHostId: event.hostId.toString(),
-            recipientEmail: guestEmail,
-            ticketData: {
-                _id: ticket._id,
-                guestName,
-                guestEmail,
-                qrCodeHash
-            },
-            eventDetails: {
-                _id: event._id,
-                title: event.title,
-                slug: event.slug,
-                date: event.date || null,
-                location: event.location || '',
-                description: event.description || '',
-                emailTemplateId: event.emailTemplateId?.toString(),
-                ticketTemplateId: event.ticketTemplateId?.toString(),
-                sendConfirmationEmail: event.sendConfirmationEmail,
-                attachTicket: event.attachTicket
-            }
-        }).catch(err => {
-            // Log error but don't fail the registration
-            console.error('Email sending failed:', err.message);
-        });
+        // Only send confirmation email if ticket is approved and not waitlisted
+        if (isApproved && !isWaitlisted) {
+            sendTicketEmail({
+                eventHostId: event.hostId.toString(),
+                recipientEmail: guestEmail,
+                ticketData: {
+                    _id: ticket._id,
+                    guestName,
+                    guestEmail,
+                    qrCodeHash
+                },
+                eventDetails: {
+                    _id: event._id,
+                    title: event.title,
+                    slug: event.slug,
+                    date: event.date || null,
+                    location: event.location || '',
+                    description: event.description || '',
+                    emailTemplateId: event.emailTemplateId?.toString(),
+                    ticketTemplateId: event.ticketTemplateId?.toString(),
+                    sendConfirmationEmail: event.sendConfirmationEmail,
+                    attachTicket: event.attachTicket
+                }
+            }).catch(err => {
+                // Log error but don't fail the registration
+                console.error('Email sending failed:', err.message);
+            });
+        }
 
-        // Create notification for event host
-        createNotification({
-            userId: event.hostId.toString(),
-            type: 'registration',
-            title: 'New Registration',
-            message: `${guestName || guestEmail} registered for ${event.title}`,
-            eventId: event._id.toString(),
-            ticketId: ticket._id.toString(),
-            data: { guestName, guestEmail, ticketCode: `TKT-${qrCodeHash.substring(0, 8).toUpperCase()}` }
-        });
+        // Create notification for event host (different messages based on status)
+        if (isWaitlisted) {
+            createNotification({
+                userId: event.hostId.toString(),
+                type: 'waitlist',
+                title: 'New Waitlist Entry',
+                message: `${guestName || guestEmail} joined the waitlist for ${event.title}`,
+                eventId: event._id.toString(),
+                ticketId: ticket._id.toString(),
+                data: { guestName, guestEmail, ticketCode: `TKT-${qrCodeHash.substring(0, 8).toUpperCase()}` }
+            });
+        } else if (!isApproved) {
+            createNotification({
+                userId: event.hostId.toString(),
+                type: 'approval',
+                title: 'Registration Pending Approval',
+                message: `${guestName || guestEmail} registered for ${event.title} - awaiting your approval`,
+                eventId: event._id.toString(),
+                ticketId: ticket._id.toString(),
+                data: { guestName, guestEmail, ticketCode: `TKT-${qrCodeHash.substring(0, 8).toUpperCase()}` }
+            });
+        } else {
+            createNotification({
+                userId: event.hostId.toString(),
+                type: 'registration',
+                title: 'New Registration',
+                message: `${guestName || guestEmail} registered for ${event.title}`,
+                eventId: event._id.toString(),
+                ticketId: ticket._id.toString(),
+                data: { guestName, guestEmail, ticketCode: `TKT-${qrCodeHash.substring(0, 8).toUpperCase()}` }
+            });
+        }
 
         // Auto-save contact for marketing (async, non-blocking)
         if (guestEmail && guestEmail !== 'No Email') {
@@ -192,7 +244,22 @@ export const registerTicket = async (req: Request, res: Response) => {
             });
         }
 
-        res.status(201).json({ message: 'Ticket registered successfully', ticket });
+        // Return appropriate response based on ticket status
+        if (isWaitlisted) {
+            res.status(202).json({
+                message: 'You have been added to the waitlist',
+                waitlist: true,
+                ticket
+            });
+        } else if (!isApproved) {
+            res.status(202).json({
+                message: 'Your registration is pending approval',
+                pendingApproval: true,
+                ticket
+            });
+        } else {
+            res.status(201).json({ message: 'Ticket registered successfully', ticket });
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Registration failed', error });
@@ -360,9 +427,130 @@ export const checkRegistration = async (req: Request, res: Response) => {
 
         res.json({
             alreadyRegistered: !!existingTicket,
-            allowMultiple: false
+            allowMultiple: false,
+            ticket: existingTicket ? {
+                _id: existingTicket._id,
+                qrCodeHash: existingTicket.qrCodeHash,
+                guestName: existingTicket.guestName,
+                status: existingTicket.status
+            } : null
         });
     } catch (error) {
         res.status(500).json({ message: 'Failed to check registration', error });
+    }
+};
+
+// Approve a pending ticket
+export const approveTicket = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const hostId = req.user.id;
+        const { ticketId } = req.params;
+
+        const ticket = await Ticket.findById(ticketId).populate('eventId');
+        if (!ticket) {
+            return res.status(404).json({ message: 'Ticket not found' });
+        }
+
+        const event = ticket.eventId as any;
+
+        // Verify host owns this event
+        if (event.hostId.toString() !== hostId) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        // Update ticket status
+        ticket.approved = true;
+        ticket.status = 'issued';
+        await ticket.save();
+
+        // Send confirmation email now that it's approved
+        sendTicketEmail({
+            eventHostId: event.hostId.toString(),
+            recipientEmail: ticket.guestEmail || '',
+            ticketData: {
+                _id: ticket._id,
+                guestName: ticket.guestName || 'Guest',
+                guestEmail: ticket.guestEmail || '',
+                qrCodeHash: ticket.qrCodeHash
+            },
+            eventDetails: {
+                _id: event._id,
+                title: event.title,
+                slug: event.slug,
+                date: event.date || null,
+                location: event.location || '',
+                description: event.description || '',
+                emailTemplateId: event.emailTemplateId?.toString(),
+                ticketTemplateId: event.ticketTemplateId?.toString(),
+                sendConfirmationEmail: event.sendConfirmationEmail,
+                attachTicket: event.attachTicket
+            }
+        }).catch(err => {
+            console.error('Email sending failed:', err.message);
+        });
+
+        res.json({ message: 'Ticket approved and confirmation sent', ticket });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to approve ticket', error });
+    }
+};
+
+// Reject (delete) a pending ticket
+export const rejectTicket = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const hostId = req.user.id;
+        const { ticketId } = req.params;
+
+        const ticket = await Ticket.findById(ticketId).populate('eventId');
+        if (!ticket) {
+            return res.status(404).json({ message: 'Ticket not found' });
+        }
+
+        const event = ticket.eventId as any;
+
+        // Verify host owns this event
+        if (event.hostId.toString() !== hostId) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        await Ticket.deleteOne({ _id: ticketId });
+
+        res.json({ message: 'Ticket rejected and deleted' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to reject ticket', error });
+    }
+};
+
+// Get pending/waitlisted tickets for an event
+export const getPendingTickets = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const hostId = req.user.id;
+        const { eventId } = req.params;
+
+        const event = await Event.findById(eventId);
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+
+        if (event.hostId.toString() !== hostId) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        const pendingTickets = await Ticket.find({
+            eventId,
+            $or: [
+                { approved: false },
+                { waitlist: true }
+            ]
+        }).sort({ createdAt: -1 });
+
+        res.json({ tickets: pendingTickets });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch pending tickets', error });
     }
 };

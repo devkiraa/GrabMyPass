@@ -10,7 +10,16 @@ const TicketSchema = new mongoose.Schema({
     pricePaid: { type: Number, default: 0 },
     paymentStatus: { type: String, enum: ['pending', 'completed', 'failed', 'free'], default: 'completed' },
     qrCodeHash: { type: String, required: true, unique: true },
-    status: { type: String, enum: ['issued', 'checked-in'], default: 'issued' },
+    // Updated status to include waitlist and pending approval states
+    status: {
+        type: String,
+        enum: ['issued', 'checked-in', 'pending', 'waitlisted'],
+        default: 'issued'
+    },
+    // Waitlist flag
+    waitlist: { type: Boolean, default: false },
+    // Approval flag (false = pending approval, true = approved)
+    approved: { type: Boolean, default: true },
     checkedInAt: { type: Date },
     checkedInBy: { type: String } // Helper info
 }, { timestamps: true });

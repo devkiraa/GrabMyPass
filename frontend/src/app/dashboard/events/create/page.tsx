@@ -22,7 +22,7 @@ function CreateEventContent() {
     const router = useRouter();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
-    const [noDate, setNoDate] = useState(false);
+
 
     // Step 1: Basic Details
     const [formData, setFormData] = useState({
@@ -205,7 +205,6 @@ function CreateEventContent() {
                             attachTicket: draft.attachTicket !== false
                         });
                         if (draft.formSchema) setQuestions(draft.formSchema);
-                        if (!draft.date) setNoDate(true);
                         lastSavedData.current = JSON.stringify({ ...draft, formSchema: draft.formSchema });
                         setIsDraftLoaded(true);
                     } else {
@@ -238,7 +237,7 @@ function CreateEventContent() {
                 slug: formData.slug,
                 location: formData.location,
                 price: Number(formData.price) || 0,
-                date: (!noDate && formData.date) ? formData.date : null,
+                date: formData.date ? formData.date : null,
                 formSchema: questions,
                 status: 'draft'
             };
@@ -279,7 +278,7 @@ function CreateEventContent() {
                     console.error('Draft create failed:', res.status, await res.text());
                 }
             }
-            lastSavedData.current = JSON.stringify({ ...formData, questions, noDate });
+            lastSavedData.current = JSON.stringify({ ...formData, questions });
             setLastSavedAt(new Date());
         } catch (e) {
             console.error("Auto-save failed", e);
@@ -290,13 +289,13 @@ function CreateEventContent() {
 
     // Auto-Save Effect
     useEffect(() => {
-        const currentData = JSON.stringify({ ...formData, questions, noDate });
+        const currentData = JSON.stringify({ ...formData, questions });
         // Prevent saving if no changes
         if (currentData === lastSavedData.current) return;
 
         const timeoutId = setTimeout(performSave, 2000); // 2s debounce
         return () => clearTimeout(timeoutId);
-    }, [formData, questions, noDate, draftId, isDraftLoaded]);
+    }, [formData, questions, draftId, isDraftLoaded]);
 
     // Portal for Header Actions
     const HeaderActions = () => {
@@ -361,7 +360,7 @@ function CreateEventContent() {
                 slug: formData.slug,
                 location: formData.location,
                 price: Number(formData.price) || 0,
-                date: (!noDate && formData.date) ? formData.date : null,
+                date: formData.date ? formData.date : null,
                 formSchema: questions,
                 status: 'active' // Publish
             };
@@ -485,16 +484,6 @@ function CreateEventContent() {
                         <div className="grid gap-2">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="date">Date & Time</Label>
-                                <div className="flex items-center gap-2">
-                                    <Switch
-                                        checked={noDate}
-                                        onCheckedChange={setNoDate}
-                                        id="create-no-date"
-                                    />
-                                    <Label htmlFor="create-no-date" className="text-xs font-normal text-slate-500">
-                                        No specific time
-                                    </Label>
-                                </div>
                             </div>
                             <Input
                                 id="date"
@@ -503,7 +492,7 @@ function CreateEventContent() {
                                 value={formData.date}
                                 onChange={handleInputChange}
                                 className="bg-white"
-                                disabled={noDate}
+                                required
                             />
                         </div>
                         <div className="grid gap-2">
@@ -726,7 +715,7 @@ function CreateEventContent() {
                                 <div>
                                     <label className="text-xs font-semibold text-indigo-400 uppercase">Date</label>
                                     <p className="font-medium text-slate-900">
-                                        {noDate ? "To Be Announced" : (formData.date ? new Date(formData.date).toLocaleString() : 'N/A')}
+                                        {formData.date ? new Date(formData.date).toLocaleString() : 'N/A'}
                                     </p>
                                 </div>
                                 <div>

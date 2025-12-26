@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, Filter, Loader2, Calendar, MapPin, MoreHorizontal, ExternalLink, Edit2, Power, Eye } from 'lucide-react';
+import { Plus, Search, Filter, Loader2, Calendar, MapPin, MoreHorizontal, ExternalLink, Edit2, Power, Eye, Copy } from 'lucide-react';
 
 export default function EventsPage() {
     const router = useRouter();
@@ -75,6 +75,16 @@ export default function EventsPage() {
         e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         e.location?.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const copyEventLink = (slug: string) => {
+        if (!username) {
+            alert('Username not loaded yet');
+            return;
+        }
+        const url = `${window.location.origin}/${username}/${slug}`;
+        navigator.clipboard.writeText(url);
+        alert('Event link copied!');
+    };
 
     // Skeleton Loading
     if (loading) return (
@@ -189,7 +199,12 @@ export default function EventsPage() {
                                                 </h3>
                                                 <div className="flex items-center text-sm text-slate-500 gap-4 mt-1">
                                                     <span className="flex items-center"><MapPin className="h-3.5 w-3.5 mr-1.5 text-slate-400" /> {event.location || 'Online'}</span>
-                                                    <span className="flex items-center"><Calendar className="h-3.5 w-3.5 mr-1.5 text-slate-400" /> {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                    {event.date && (
+                                                        <span className="flex items-center">
+                                                            <Calendar className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
+                                                            {new Date(event.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })} at {new Date(event.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </div>
                                         </div>
@@ -236,6 +251,15 @@ export default function EventsPage() {
                                                     title={status === 'active' ? 'Close Registration' : 'Activate Registration'}
                                                 >
                                                     <Power className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600"
+                                                    onClick={() => copyEventLink(event.slug)}
+                                                    title="Copy Event Link"
+                                                >
+                                                    <Copy className="h-4 w-4" />
                                                 </Button>
                                             </div>
                                         </div>

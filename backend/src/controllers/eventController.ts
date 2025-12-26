@@ -88,21 +88,19 @@ export const updateEvent = async (req: Request, res: Response) => {
         const { id } = req.params;
         const updates = req.body;
 
-        console.log('=== updateEvent Debug ===');
-        console.log('Event ID:', id);
-        console.log('User ID:', userId);
-        console.log('Updates:', JSON.stringify(updates, null, 2));
-
         // First check if event exists at all
         const existingEvent = await Event.findById(id);
         if (!existingEvent) {
-            console.log('Event not found with ID:', id);
             return res.status(404).json({ message: 'Event not found' });
         }
 
-        console.log('Event hostId:', existingEvent.hostId.toString());
-        console.log('Request userId:', userId);
-        console.log('Match:', existingEvent.hostId.toString() === userId);
+        // Clean up empty ObjectId fields (can't be empty strings)
+        if (updates.emailTemplateId === '' || updates.emailTemplateId === null) {
+            delete updates.emailTemplateId;
+        }
+        if (updates.ticketTemplateId === '' || updates.ticketTemplateId === null) {
+            delete updates.ticketTemplateId;
+        }
 
         const event = await Event.findOneAndUpdate(
             { _id: id, hostId: userId },
@@ -111,11 +109,9 @@ export const updateEvent = async (req: Request, res: Response) => {
         );
 
         if (!event) {
-            console.log('Event found but hostId mismatch - unauthorized');
             return res.status(404).json({ message: 'Event not found or unauthorized' });
         }
 
-        console.log('Event updated successfully');
         res.status(200).json(event);
     } catch (error: any) {
         console.error('Update Event Error:', error);
