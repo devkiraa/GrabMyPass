@@ -156,14 +156,19 @@ export const createEventSpreadsheet = async (req: Request, res: Response) => {
         // @ts-ignore
         const userId = req.user.id;
 
-        const accessToken = await refreshAccessToken(userId);
-        if (!accessToken) {
-            return res.status(401).json({ message: 'Google Sheets not connected', needsAuth: true });
-        }
-
         const event = await Event.findById(eventId);
         if (!event) {
             return res.status(404).json({ message: 'Event not found' });
+        }
+
+        // Security Check: Ensure user owns the event
+        if (event.hostId.toString() !== userId) {
+            return res.status(403).json({ message: 'Not authorized to manage this event' });
+        }
+
+        const accessToken = await refreshAccessToken(userId);
+        if (!accessToken) {
+            return res.status(401).json({ message: 'Google Sheets not connected', needsAuth: true });
         }
 
         // Create spreadsheet
@@ -372,10 +377,17 @@ export const addRegistrationToSheet = async (
 export const getEventSpreadsheet = async (req: Request, res: Response) => {
     try {
         const { eventId } = req.params;
+        // @ts-ignore
+        const userId = req.user.id;
 
         const event = await Event.findById(eventId);
         if (!event) {
             return res.status(404).json({ message: 'Event not found' });
+        }
+
+        // Security Check: Ensure user owns the event
+        if (event.hostId.toString() !== userId) {
+            return res.status(403).json({ message: 'Not authorized to view this event settings' });
         }
 
         res.json({
@@ -393,6 +405,18 @@ export const getEventSpreadsheet = async (req: Request, res: Response) => {
 export const unlinkSpreadsheet = async (req: Request, res: Response) => {
     try {
         const { eventId } = req.params;
+        // @ts-ignore
+        const userId = req.user.id;
+
+        const event = await Event.findById(eventId);
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+
+        // Security Check: Ensure user owns the event
+        if (event.hostId.toString() !== userId) {
+            return res.status(403).json({ message: 'Not authorized to modify this event' });
+        }
 
         await Event.findByIdAndUpdate(eventId, {
             $unset: { googleSheetId: 1, googleSheetUrl: 1 }
@@ -412,8 +436,17 @@ export const syncRegistrationsToSheet = async (req: Request, res: Response) => {
         // @ts-ignore
         const userId = req.user.id;
 
-        const event = await Event.findById(eventId).populate('registrations');
-        if (!event?.googleSheetId) {
+        const event = await Event.findById(eventId); // Don't populate yet for check
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found' });
+        }
+
+        // Security Check
+        if (event.hostId.toString() !== userId) {
+            return res.status(403).json({ message: 'Not authorized' });
+        }
+
+        if (!event.googleSheetId) {
             return res.status(400).json({ message: 'No spreadsheet linked to this event' });
         }
 
@@ -422,11 +455,15 @@ export const syncRegistrationsToSheet = async (req: Request, res: Response) => {
             return res.status(401).json({ message: 'Google Sheets not connected', needsAuth: true });
         }
 
-        // This would need Registration model to be imported and used
-        // For now, return success
+        // Fetch existing tickets
+        const tickets = await Ticket.find({ eventId });
+
+        // This is a placeholder for manual sync trigger
+        // Theoretically logic refers to bulk append similar to createEventSpreadsheet
+
         res.json({
             message: 'Sync initiated',
-            note: 'Registration sync would happen here'
+            count: tickets.length
         });
     } catch (error) {
         console.error('Sync registrations error:', error);

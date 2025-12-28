@@ -77,6 +77,7 @@ export const getGoogleFormsConnectUrl = (req: Request, res: Response) => {
         return res.status(500).json({ message: 'Google OAuth not configured' });
     }
 
+    const { draftId } = req.query;
     const redirectUri = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/callback`;
 
     // Scopes needed for Google Forms + Sheets
@@ -87,6 +88,14 @@ export const getGoogleFormsConnectUrl = (req: Request, res: Response) => {
         'https://www.googleapis.com/auth/drive.file'            // Access app-created files
     ].join(' ');
 
+    // Create state with userId and draftId
+    const stateData = {
+        // @ts-ignore
+        userId: req.user.id,
+        draftId: draftId || null
+    };
+    const state = Buffer.from(JSON.stringify(stateData)).toString('base64');
+
     const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     url.searchParams.set('client_id', clientId);
     url.searchParams.set('redirect_uri', redirectUri);
@@ -94,22 +103,27 @@ export const getGoogleFormsConnectUrl = (req: Request, res: Response) => {
     url.searchParams.set('scope', scopes);
     url.searchParams.set('access_type', 'offline'); // Get refresh token
     url.searchParams.set('prompt', 'consent'); // Force consent to get refresh token
-    // @ts-ignore
-    url.searchParams.set('state', req.user.id); // Pass user ID in state
+    url.searchParams.set('state', state);
 
     res.json({ url: url.toString() });
 };
 
 // Handle Google Forms OAuth callback
 export const googleFormsCallback = async (req: Request, res: Response) => {
-    const { code, state: userId } = req.query;
+    const { code, state } = req.query;
 
-    if (!code || !userId) {
-        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/events/create?error=missing_params`);
+    let baseRedirect = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/events/create`;
+
+    if (!code || !state) {
+        return res.redirect(`${baseRedirect}?error=missing_params`);
     }
 
     try {
         const redirectUri = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/callback`;
+
+        // Decode state
+        const decodedState = JSON.parse(Buffer.from(state as string, 'base64').toString());
+        const { userId, draftId } = decodedState;
 
         // Exchange code for tokens
         const tokenResponse = await axios.post('https://oauth2.googleapis.com/token', {
@@ -133,11 +147,17 @@ export const googleFormsCallback = async (req: Request, res: Response) => {
             }
         });
 
+        // Determine redirect URL
+        let finalRedirect = `${baseRedirect}?googleFormsConnected=true`;
+        if (draftId) {
+            finalRedirect += `&draftId=${draftId}`;
+        }
+
         // Redirect back to form builder
-        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/events/create?googleFormsConnected=true`);
+        res.redirect(finalRedirect);
     } catch (error) {
         console.error('Google Forms callback error:', error);
-        res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/events/create?error=auth_failed`);
+        res.redirect(`${baseRedirect}?error=auth_failed`);
     }
 };
 

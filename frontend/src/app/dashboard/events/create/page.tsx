@@ -157,6 +157,14 @@ function CreateEventContent() {
         return () => clearTimeout(timeoutId);
     }, [formData.slug]);
 
+    // Handle Google Forms Redirect
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('googleFormsConnected') === 'true') {
+            setStep(2);
+        }
+    }, []);
+
     // Auto-Save Server State
     const searchParams = useSearchParams();
     const draftIdParam = searchParams?.get('draftId');
@@ -695,6 +703,7 @@ function CreateEventContent() {
                 <FormBuilder
                     questions={questions}
                     onChange={setQuestions}
+                    draftId={draftId}
                 />
             )}
 
@@ -769,7 +778,10 @@ function CreateEventContent() {
                                 {loading ? 'Publishing...' : 'Publish Event'}
                             </Button>
                         ) : (
-                            <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={() => setStep(prev => Math.min(3, prev + 1))}>
+                            <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={async () => {
+                                await performSave();
+                                setStep(prev => Math.min(3, prev + 1));
+                            }}>
                                 Next <ChevronRight className="w-4 h-4 ml-2" />
                             </Button>
                         )}

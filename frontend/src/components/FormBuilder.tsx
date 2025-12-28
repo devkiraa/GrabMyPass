@@ -64,6 +64,7 @@ interface GoogleForm {
 interface FormBuilderProps {
     questions: FormItem[];
     onChange: (questions: FormItem[]) => void;
+    draftId?: string | null;
 }
 
 // All field types like Google Forms
@@ -81,7 +82,7 @@ const FIELD_TYPES = [
     { value: 'url', label: 'URL/Link', icon: LinkIcon },
 ];
 
-export function FormBuilder({ questions, onChange }: FormBuilderProps) {
+export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) {
     const [activeItem, setActiveItem] = useState<string | null>(null);
 
     // Google Forms state
@@ -106,8 +107,12 @@ export function FormBuilder({ questions, onChange }: FormBuilderProps) {
         const params = new URLSearchParams(window.location.search);
         if (params.get('googleFormsConnected') === 'true') {
             checkGoogleFormsAccess();
-            // Clean up URL
-            window.history.replaceState({}, document.title, window.location.pathname);
+            // Clean up URL but preserve other params (like draftId)
+            const newParams = new URLSearchParams(window.location.search);
+            newParams.delete('googleFormsConnected');
+            const queryString = newParams.toString();
+            const newUrl = window.location.pathname + (queryString ? '?' + queryString : '');
+            window.history.replaceState({}, document.title, newUrl);
         }
     }, []);
 
@@ -137,8 +142,13 @@ export function FormBuilder({ questions, onChange }: FormBuilderProps) {
     const connectGoogleForms = async () => {
         const token = localStorage.getItem('auth_token');
         try {
+            let url = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/connect`;
+            if (draftId) {
+                url += `?draftId=${draftId}`;
+            }
+
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/connect`,
+                url,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             if (res.ok) {
@@ -390,7 +400,7 @@ export function FormBuilder({ questions, onChange }: FormBuilderProps) {
                         <Button
                             onClick={connectGoogleForms}
                             variant="outline"
-                            className="bg-white hover:bg-blue-50 border-blue-200 text-blue-700"
+                            className="bg-white border-blue-200 text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-colors"
                         >
                             <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                                 <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -407,8 +417,8 @@ export function FormBuilder({ questions, onChange }: FormBuilderProps) {
                                 <button
                                     onClick={() => setImportMode('url')}
                                     className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${importMode === 'url'
-                                            ? 'bg-white text-blue-700 shadow-sm'
-                                            : 'text-slate-600 hover:text-slate-900'
+                                        ? 'bg-white text-blue-700 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
                                         }`}
                                 >
                                     <LinkIcon className="w-3.5 h-3.5 inline mr-1.5" />
@@ -422,8 +432,8 @@ export function FormBuilder({ questions, onChange }: FormBuilderProps) {
                                         }
                                     }}
                                     className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${importMode === 'browse'
-                                            ? 'bg-white text-blue-700 shadow-sm'
-                                            : 'text-slate-600 hover:text-slate-900'
+                                        ? 'bg-white text-blue-700 shadow-sm'
+                                        : 'text-slate-600 hover:text-slate-900'
                                         }`}
                                 >
                                     <FileSpreadsheet className="w-3.5 h-3.5 inline mr-1.5" />
