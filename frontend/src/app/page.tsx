@@ -93,9 +93,7 @@ export default function LandingPage() {
       {/* Navbar */}
       <header className="px-4 lg:px-6 h-16 flex items-center border-b border-slate-100/50 backdrop-blur-xl sticky top-0 z-50 bg-white/80">
         <Link className="flex items-center justify-center gap-2.5" href="/">
-          <div className="bg-gradient-to-br from-indigo-600 to-violet-600 p-2 rounded-xl shadow-lg shadow-indigo-200">
-            <Ticket className="h-5 w-5 text-white" />
-          </div>
+          <img src="/logo.png" alt="GrabMyPass" className="h-10 w-10 rounded-xl shadow-lg shadow-indigo-200" />
           <span className="font-bold text-xl tracking-tight text-slate-900">GrabMyPass</span>
         </Link>
         <nav className="ml-auto flex items-center gap-1">
@@ -432,9 +430,7 @@ export default function LandingPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <div className="bg-white p-1.5 rounded-lg">
-                  <Ticket className="h-5 w-5 text-indigo-600" />
-                </div>
+                <img src="/logo.png" alt="GrabMyPass" className="h-8 w-8 rounded-lg" />
                 <span className="font-bold text-lg">GrabMyPass</span>
               </div>
               <p className="text-slate-400 text-sm">

@@ -12,6 +12,11 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "GrabMyPass",
   description: "Secure, reliable, and open-source event ticketing.",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 import { Toaster } from "@/components/ui/toaster";

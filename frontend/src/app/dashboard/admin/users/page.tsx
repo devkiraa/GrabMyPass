@@ -426,7 +426,7 @@ export default function UserManagementPage() {
                     </DialogHeader>
                     <div className="py-4">
                         <label className="text-sm font-medium mb-2 block text-slate-700">Select Role</label>
-                        <Select value={newRole} onValueChange={(v) => setNewRole(v as any)}>
+                        <Select value={newRole} onValueChange={(v: string) => setNewRole(v as 'admin' | 'host' | 'helper')}>
                             <SelectTrigger>
                                 <SelectValue />
                             </SelectTrigger>

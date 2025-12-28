@@ -102,9 +102,7 @@ export default function LoginPage() {
     return (
         <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 px-4 font-sans selection:bg-indigo-100">
             <Link href="/" className="mb-8 flex items-center gap-2 group">
-                <div className="bg-indigo-600 p-2 rounded-lg group-hover:bg-indigo-700 transition-colors">
-                    <Ticket className="h-5 w-5 text-white" />
-                </div>
+                <img src="/logo.png" alt="GrabMyPass" className="h-10 w-10 rounded-lg group-hover:scale-105 transition-transform" />
                 <span className="font-bold text-xl text-slate-900 tracking-tight">GrabMyPass</span>
             </Link>
 

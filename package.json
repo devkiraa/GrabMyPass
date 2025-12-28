@@ -6,9 +6,13 @@
         "frontend"
     ],
     "scripts": {
+        "dev": "concurrently -k -n \"BACKEND,FRONTEND\" -c \"bgBlue.bold,bgMagenta.bold\" \"npm run dev:backend\" \"npm run dev:frontend\"",
         "dev:backend": "npm run dev --workspace=backend",
         "dev:frontend": "npm run dev --workspace=frontend",
         "build": "npm run build --workspaces",
         "install:all": "npm install"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.1"
     }
 }
