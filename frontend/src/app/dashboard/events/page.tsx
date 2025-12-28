@@ -13,7 +13,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { Plus, Search, Filter, Loader2, Calendar, MapPin, MoreHorizontal, ExternalLink, Edit2, Power, Eye, Copy, Trash2, AlertTriangle } from 'lucide-react';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Search, Filter, Loader2, Calendar, MapPin, ExternalLink, Edit2, Power, Copy, Trash2, AlertTriangle, MoreVertical } from 'lucide-react';
 
 export default function EventsPage() {
     const router = useRouter();
@@ -218,7 +226,11 @@ export default function EventsPage() {
                                 const status = event.status || (isPast ? 'closed' : 'active'); // Fallback logic
 
                                 return (
-                                    <div key={event._id} className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors group gap-4">
+                                    <div
+                                        key={event._id}
+                                        className="flex flex-col md:flex-row md:items-center justify-between p-4 border border-slate-100 rounded-lg hover:bg-slate-50 transition-colors group gap-4 cursor-pointer"
+                                        onClick={() => router.push(`/dashboard/events/${event._id}`)}
+                                    >
                                         <div className="flex items-center gap-4">
                                             <div className={`h-14 w-14 rounded-lg flex flex-col items-center justify-center font-bold border shadow-sm ${status === 'active' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : 'bg-slate-100 text-slate-500 border-slate-200'
                                                 }`}>
@@ -229,7 +241,12 @@ export default function EventsPage() {
                                                 <h3 className="font-semibold text-lg text-slate-900 group-hover:text-indigo-600 transition-colors flex items-center gap-2">
                                                     {event.title}
                                                     {username && (
-                                                        <a href={`/${username}/${event.slug}`} target="_blank" className="text-slate-400 hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <a
+                                                            href={`/${username}/${event.slug}`}
+                                                            target="_blank"
+                                                            className="text-slate-400 hover:text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                            onClick={(e: any) => e.stopPropagation()}
+                                                        >
                                                             <ExternalLink className="w-3 h-3" />
                                                         </a>
                                                     )}
@@ -255,59 +272,63 @@ export default function EventsPage() {
                                                 {status === 'active' ? 'Active' : status === 'draft' ? 'Draft' : 'Closed'}
                                             </span>
 
-                                            <div className="flex items-center border-l pl-2 gap-1 border-slate-200">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600"
-                                                    onClick={() => router.push(`/dashboard/events/${event._id}`)}
-                                                    title="View Details"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600"
-                                                    onClick={() => {
-                                                        if (status === 'draft') {
-                                                            router.push(`/dashboard/events/create?draftId=${event._id}`);
-                                                        } else {
-                                                            router.push(`/dashboard/events/${event._id}/edit`);
-                                                        }
-                                                    }}
-                                                    title={status === 'draft' ? "Resume Editing" : "Edit Event"}
-                                                >
-                                                    <Edit2 className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className={`h-8 w-8 p-0 ${status === 'active' ? 'text-green-500 hover:text-red-500' : 'text-slate-400 hover:text-green-500'}`}
-                                                    onClick={() => toggleStatus(event._id, status)}
-                                                    title={status === 'active' ? 'Close Registration' : 'Activate Registration'}
-                                                >
-                                                    <Power className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0 text-slate-400 hover:text-indigo-600"
-                                                    onClick={() => copyEventLink(event.slug)}
-                                                    title="Copy Event Link"
-                                                >
-                                                    <Copy className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0 text-slate-400 hover:text-red-600"
-                                                    onClick={() => setEventToDelete(event._id)}
-                                                    title="Delete Event"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild onClick={(e: any) => e.stopPropagation()}>
+                                                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                        <span className="sr-only">Open menu</span>
+                                                        <MoreVertical className="h-4 w-4 text-slate-500" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end" onClick={(e: any) => e.stopPropagation()}>
+                                                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                    <DropdownMenuItem
+                                                        onClick={(e: any) => {
+                                                            e.stopPropagation();
+                                                            if (status === 'draft') {
+                                                                router.push(`/dashboard/events/create?draftId=${event._id}`);
+                                                            } else {
+                                                                router.push(`/dashboard/events/${event._id}/edit`);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Edit2 className="mr-2 h-4 w-4" />
+                                                        <span>{status === 'draft' ? 'Resume Editing' : 'Edit Event'}</span>
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuItem
+                                                        onClick={(e: any) => {
+                                                            e.stopPropagation();
+                                                            toggleStatus(event._id, status);
+                                                        }}
+                                                    >
+                                                        <Power className={`mr-2 h-4 w-4 ${status === 'active' ? 'text-red-500' : 'text-green-500'}`} />
+                                                        <span>{status === 'active' ? 'Deactivate Event' : 'Activate Event'}</span>
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuItem
+                                                        onClick={(e: any) => {
+                                                            e.stopPropagation();
+                                                            copyEventLink(event.slug);
+                                                        }}
+                                                    >
+                                                        <Copy className="mr-2 h-4 w-4" />
+                                                        <span>Copy Link</span>
+                                                    </DropdownMenuItem>
+
+                                                    <DropdownMenuSeparator />
+
+                                                    <DropdownMenuItem
+                                                        className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                                                        onClick={(e: any) => {
+                                                            e.stopPropagation();
+                                                            setEventToDelete(event._id);
+                                                        }}
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        <span>Delete</span>
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                         </div>
                                     </div>
                                 )

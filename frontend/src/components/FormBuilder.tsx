@@ -399,8 +399,7 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
                     ) : !googleFormsConnected ? (
                         <Button
                             onClick={connectGoogleForms}
-                            variant="outline"
-                            className="bg-white border-blue-200 text-blue-700 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-colors"
+                            className="bg-blue-600 hover:bg-blue-700 text-white border-transparent shadow-sm transition-all"
                         >
                             <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                                 <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

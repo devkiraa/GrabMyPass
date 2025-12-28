@@ -539,8 +539,7 @@ export default function EventDetailPage() {
                             </p>
                             <Button
                                 onClick={connectGoogleSheets}
-                                variant="outline"
-                                className="bg-white border-green-200 text-green-700 hover:bg-green-50"
+                                className="bg-green-600 hover:bg-green-700 text-white border-transparent shadow-sm"
                             >
                                 <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
                                     <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />

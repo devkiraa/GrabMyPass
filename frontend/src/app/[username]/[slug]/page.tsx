@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +33,56 @@ export default function PublicEventPage() {
     // Form Data State
     const [answers, setAnswers] = useState<Record<string, any>>({});
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+    // Multistep Form State
+    const [currentSectionPage, setCurrentSectionPage] = useState(0);
+
+    const formSections = useMemo(() => {
+        if (!event?.formSchema) return [];
+        const sections: any[][] = [];
+        let currentSection: any[] = [];
+
+        event.formSchema.forEach((field: any) => {
+            if (field.itemType === 'section') {
+                if (currentSection.length > 0) {
+                    sections.push(currentSection);
+                }
+                currentSection = [field];
+            } else {
+                currentSection.push(field);
+            }
+        });
+        if (currentSection.length > 0) sections.push(currentSection);
+
+        return sections.length > 0 ? sections : [event.formSchema];
+    }, [event?.formSchema]);
+
+    const handleNextSection = () => {
+        const currentFields = formSections[currentSectionPage];
+        // Validate required fields
+        for (const field of currentFields) {
+            if (field.required && field.itemType !== 'section') {
+                const val = answers[field.label];
+                if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)) {
+                    setError(`Please fill in "${field.label}"`);
+                    return;
+                }
+            }
+        }
+        setError('');
+        setCurrentSectionPage(prev => prev + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    const handlePrevSection = () => {
+        setError('');
+        if (currentSectionPage > 0) {
+            setCurrentSectionPage(prev => prev - 1);
+        } else {
+            setStep(1);
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
 
     // Fetch user profile if logged in
     const fetchUserProfile = async (token: string) => {
@@ -880,15 +930,23 @@ export default function PublicEventPage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500">
-                            <div className="flex items-center gap-2 mb-6 cursor-pointer text-gray-400 hover:text-[#00CC68] transition-colors w-fit" onClick={() => setStep(1)}>
+                        <div key={currentSectionPage} className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500" id="registration-form-container">
+                            <div className="flex items-center gap-2 mb-6 cursor-pointer text-gray-400 hover:text-[#00CC68] transition-colors w-fit" onClick={handlePrevSection}>
                                 <ChevronLeft className="w-4 h-4" />
                                 <span className="text-sm font-medium">Back</span>
                             </div>
 
                             <div className="space-y-2">
                                 <h2 className="text-3xl font-bold text-[#303030]">Complete Registration</h2>
-                                <p className="text-gray-500 text-lg">Fill in the details below.</p>
+                                <p className="text-gray-500 text-lg">
+                                    Step {currentSectionPage + 1} of {formSections.length}
+                                </p>
+                                <div className="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden mt-2">
+                                    <div
+                                        className="bg-[#00CC68] h-full rounded-full transition-all duration-500 ease-out"
+                                        style={{ width: `${((currentSectionPage + 1) / formSections.length) * 100}%` }}
+                                    />
+                                </div>
                             </div>
 
                             {/* User Profile Card */}
@@ -941,7 +999,7 @@ export default function PublicEventPage() {
                                 </div>
                                 <CardContent className="p-8">
                                     <form onSubmit={handleSubmit} className="space-y-6">
-                                        {event.formSchema?.map((field: any) => {
+                                        {formSections[currentSectionPage]?.map((field: any) => {
                                             // Handle Sections
                                             if (field.itemType === 'section') {
                                                 return (
@@ -1030,15 +1088,27 @@ export default function PublicEventPage() {
                                             </div>
                                         )}
 
-                                        <Button type="submit" className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:translate-y-[-1px]" disabled={submitting}>
-                                            {submitting ? (
-                                                <>
-                                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
-                                                </>
+                                        <div className="flex gap-4">
+                                            {currentSectionPage < formSections.length - 1 ? (
+                                                <Button
+                                                    type="button"
+                                                    onClick={handleNextSection}
+                                                    className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:translate-y-[-1px]"
+                                                >
+                                                    Next <ArrowRight className="w-5 h-5 ml-2" />
+                                                </Button>
                                             ) : (
-                                                'Complete Registration'
+                                                <Button type="submit" className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:translate-y-[-1px]" disabled={submitting}>
+                                                    {submitting ? (
+                                                        <>
+                                                            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
+                                                        </>
+                                                    ) : (
+                                                        'Complete Registration'
+                                                    )}
+                                                </Button>
                                             )}
-                                        </Button>
+                                        </div>
                                     </form>
                                 </CardContent>
                             </Card>
