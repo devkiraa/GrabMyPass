@@ -283,7 +283,8 @@ function convertGoogleFormToOurFormat(googleForm: any): any[] {
                 if (choiceQuestion.type === 'CHECKBOX') type = 'checkbox';
                 else if (choiceQuestion.type === 'DROP_DOWN') type = 'select';
 
-                const options = choiceQuestion.options?.map((opt: any) => opt.value) || ['Option 1'];
+                const options = choiceQuestion.options?.map((opt: any) => opt.value).filter((v: any) => v && typeof v === 'string') || ['Option 1'];
+                if (options.length === 0) options.push('Option 1'); // Ensure at least one option
 
                 items.push({
                     ...baseItem,

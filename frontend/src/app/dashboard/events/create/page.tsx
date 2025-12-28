@@ -246,6 +246,12 @@ function CreateEventContent() {
                 location: formData.location,
                 price: Number(formData.price) || 0,
                 date: formData.date ? formData.date : null,
+                maxRegistrations: Number(formData.maxRegistrations) || 0,
+                allowMultipleRegistrations: formData.allowMultipleRegistrations,
+                emailTemplateId: formData.emailTemplateId || null,
+                sendConfirmationEmail: formData.sendConfirmationEmail,
+                ticketTemplateId: formData.ticketTemplateId || null,
+                attachTicket: formData.attachTicket,
                 formSchema: questions,
                 status: 'draft'
             };
@@ -369,6 +375,12 @@ function CreateEventContent() {
                 location: formData.location,
                 price: Number(formData.price) || 0,
                 date: formData.date ? formData.date : null,
+                maxRegistrations: Number(formData.maxRegistrations) || 0,
+                allowMultipleRegistrations: formData.allowMultipleRegistrations,
+                emailTemplateId: formData.emailTemplateId || null,
+                sendConfirmationEmail: formData.sendConfirmationEmail,
+                ticketTemplateId: formData.ticketTemplateId || null,
+                attachTicket: formData.attachTicket,
                 formSchema: questions,
                 status: 'active' // Publish
             };

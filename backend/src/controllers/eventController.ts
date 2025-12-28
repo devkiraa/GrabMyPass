@@ -8,22 +8,43 @@ export const createEvent = async (req: Request, res: Response) => {
     try {
         // @ts-ignore - handled by middleware
         const userId = req.user.id;
-        const { title, description, slug, date, location, price, formSchema, authorizedHelpers, status } = req.body;
+        const {
+            title, description, slug, date, location, price,
+            formSchema, authorizedHelpers, status,
+            maxRegistrations, allowMultipleRegistrations,
+            emailTemplateId, sendConfirmationEmail,
+            ticketTemplateId, attachTicket,
+            waitlistEnabled, approvalRequired
+        } = req.body;
+
+        // Clean ObjectIds (handle empty strings)
+        const cleanEmailTemplateId = (emailTemplateId && emailTemplateId !== '') ? emailTemplateId : undefined;
+        const cleanTicketTemplateId = (ticketTemplateId && ticketTemplateId !== '') ? ticketTemplateId : undefined;
+
         const event = await Event.create({
             hostId: userId,
             title,
             description,
             slug,
-            date,
+            date: date || undefined, // dates can handle null/undefined usually, but undefined triggers optional
             location,
             price: price || 0,
             formSchema,
             authorizedHelpers,
-            status: status || 'draft'
+            status: status || 'draft',
+            maxRegistrations: maxRegistrations || 0,
+            allowMultipleRegistrations: allowMultipleRegistrations, // Pass value directly (frontend sends boolean)
+            emailTemplateId: cleanEmailTemplateId,
+            sendConfirmationEmail: sendConfirmationEmail,
+            ticketTemplateId: cleanTicketTemplateId,
+            attachTicket: attachTicket,
+            waitlistEnabled: waitlistEnabled || false,
+            approvalRequired: approvalRequired || false
         });
 
         res.status(201).json(event);
     } catch (error) {
+        console.error('Create Event Error:', error);
         res.status(500).json({ message: 'Failed to create event', error });
     }
 };
