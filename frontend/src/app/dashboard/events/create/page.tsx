@@ -12,7 +12,9 @@ import {
     Loader2,
     CheckCircle2,
     XCircle,
-    Save
+    Save,
+    Mail,
+    Ticket
 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { Switch } from '@/components/ui/switch';
@@ -22,6 +24,7 @@ function CreateEventContent() {
     const router = useRouter();
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [isEditMode, setIsEditMode] = useState(false); // Track if editing existing event
 
 
     // Step 1: Basic Details
@@ -68,7 +71,11 @@ function CreateEventContent() {
                 });
                 if (res.ok) {
                     const data = await res.json();
-                    setUsername(data.username || 'user');
+                    // Use username, or email prefix, or name as fallback
+                    const usernameValue = data.username ||
+                        (data.email ? data.email.split('@')[0] : null) ||
+                        (data.name ? data.name.toLowerCase().replace(/\s+/g, '') : 'user');
+                    setUsername(usernameValue);
                 }
             } catch (e) {
                 console.error(e);
@@ -214,6 +221,10 @@ function CreateEventContent() {
                         });
                         if (draft.formSchema) setQuestions(draft.formSchema);
                         lastSavedData.current = JSON.stringify({ ...draft, formSchema: draft.formSchema });
+                        // Set edit mode if this is an active event (not a draft)
+                        if (draft.status === 'active') {
+                            setIsEditMode(true);
+                        }
                         setIsDraftLoaded(true);
                     } else {
                         // Draft not found
@@ -323,7 +334,11 @@ function CreateEventContent() {
                     <span className="text-xs text-slate-500 font-medium">
                         {isSavingDraft ? 'Saving...' : lastSavedAt ? `Saved ${lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Not saved'}
                     </span>
-                    {draftId && (
+                    {isEditMode ? (
+                        <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full border border-blue-200">
+                            Editing
+                        </span>
+                    ) : draftId && (
                         <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full border border-amber-200">
                             Draft
                         </span>
@@ -337,7 +352,7 @@ function CreateEventContent() {
                     className="h-8 border-slate-200"
                 >
                     <Save className="w-3.5 h-3.5 mr-2 text-slate-500" />
-                    Save Draft
+                    {isEditMode ? 'Save' : 'Save Draft'}
                 </Button>
             </>,
             target
@@ -433,20 +448,36 @@ function CreateEventContent() {
     return (
         <div className="max-w-4xl mx-auto space-y-8 pb-32">
             <HeaderActions />
+
+            {/* Page Title */}
+            <div className="text-center">
+                <h1 className="text-2xl font-bold text-slate-900">
+                    {isEditMode ? 'Edit Event' : 'Create Event'}
+                </h1>
+                {isEditMode && formData.title && (
+                    <p className="text-slate-500 mt-1">{formData.title}</p>
+                )}
+            </div>
+
             {/* Steps Indicator */}
-            <div className="flex items-center justify-center space-x-4 mb-8">
+            <div className="flex items-center justify-center space-x-4 mb-8 flex-wrap gap-y-2">
                 <div className={`flex items-center ${step >= 1 ? 'text-indigo-600' : 'text-slate-400'}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 1 ? 'border-indigo-600 bg-indigo-50' : 'border-slate-300'} font-bold`}>1</div>
                     <span className="ml-2 font-medium">Details</span>
                 </div>
-                <div className="w-12 h-0.5 bg-slate-200"></div>
+                <div className="w-8 h-0.5 bg-slate-200"></div>
                 <div className={`flex items-center ${step >= 2 ? 'text-indigo-600' : 'text-slate-400'}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 2 ? 'border-indigo-600 bg-indigo-50' : 'border-slate-300'} font-bold`}>2</div>
                     <span className="ml-2 font-medium">Form Builder</span>
                 </div>
-                <div className="w-12 h-0.5 bg-slate-200"></div>
+                <div className="w-8 h-0.5 bg-slate-200"></div>
                 <div className={`flex items-center ${step >= 3 ? 'text-indigo-600' : 'text-slate-400'}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 3 ? 'border-indigo-600 bg-indigo-50' : 'border-slate-300'} font-bold`}>3</div>
+                    <span className="ml-2 font-medium">Email & Tickets</span>
+                </div>
+                <div className="w-8 h-0.5 bg-slate-200"></div>
+                <div className={`flex items-center ${step >= 4 ? 'text-indigo-600' : 'text-slate-400'}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 4 ? 'border-indigo-600 bg-indigo-50' : 'border-slate-300'} font-bold`}>4</div>
                     <span className="ml-2 font-medium">Review</span>
                 </div>
             </div>
@@ -719,8 +750,99 @@ function CreateEventContent() {
                 />
             )}
 
-            {/* Step 3: Review */}
+            {/* Step 3: Email & Ticket Configuration */}
             {step === 3 && (
+                <div className="space-y-8">
+                    {/* Email Configuration */}
+                    <Card className="border-slate-200">
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <Mail className="w-5 h-5 text-indigo-600" />
+                                <CardTitle>Email Configuration</CardTitle>
+                            </div>
+                            <CardDescription>Configure how confirmation emails are sent to attendees.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                                <div>
+                                    <Label className="text-base font-medium">Send Confirmation Emails</Label>
+                                    <p className="text-sm text-slate-500">Automatically email attendees when they register</p>
+                                </div>
+                                <Switch
+                                    checked={formData.sendConfirmationEmail}
+                                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, sendConfirmationEmail: checked }))}
+                                />
+                            </div>
+
+                            {formData.sendConfirmationEmail && (
+                                <div className="space-y-3">
+                                    <Label>Email Template</Label>
+                                    <select
+                                        value={formData.emailTemplateId}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, emailTemplateId: e.target.value }))}
+                                        className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    >
+                                        <option value="">Use default email layout</option>
+                                        {emailTemplates.map((t) => (
+                                            <option key={t._id} value={t._id}>{t.name}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-slate-500">
+                                        Select a custom template or use the default.
+                                        <a href="/dashboard/email-templates" className="text-indigo-600 ml-1 hover:underline">Create templates →</a>
+                                    </p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Ticket Configuration */}
+                    <Card className="border-slate-200">
+                        <CardHeader>
+                            <div className="flex items-center gap-2">
+                                <Ticket className="w-5 h-5 text-indigo-600" />
+                                <CardTitle>Ticket Design</CardTitle>
+                            </div>
+                            <CardDescription>Configure the ticket that gets attached to confirmation emails.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
+                                <div>
+                                    <Label className="text-base font-medium">Attach Ticket to Email</Label>
+                                    <p className="text-sm text-slate-500">Generate and attach a custom ticket with QR code</p>
+                                </div>
+                                <Switch
+                                    checked={formData.attachTicket}
+                                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, attachTicket: checked }))}
+                                />
+                            </div>
+
+                            {formData.attachTicket && (
+                                <div className="space-y-3">
+                                    <Label>Ticket Template</Label>
+                                    <select
+                                        value={formData.ticketTemplateId}
+                                        onChange={(e) => setFormData(prev => ({ ...prev, ticketTemplateId: e.target.value }))}
+                                        className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    >
+                                        <option value="">Use default ticket design</option>
+                                        {ticketTemplates.map((t) => (
+                                            <option key={t._id} value={t._id}>{t.name}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-slate-500">
+                                        Select a custom ticket design or use the default.
+                                        <a href="/dashboard/ticket-templates" className="text-indigo-600 ml-1 hover:underline">Design tickets →</a>
+                                    </p>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
+
+            {/* Step 4: Review */}
+            {step === 4 && (
                 <div className="space-y-8">
                     <Card className="border-indigo-100 bg-indigo-50/50">
                         <CardHeader>
@@ -747,28 +869,88 @@ function CreateEventContent() {
                                     <label className="text-xs font-semibold text-indigo-400 uppercase">URL</label>
                                     <p className="font-medium text-slate-900">grabmypass.com/{username}/{formData.slug}</p>
                                 </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-indigo-400 uppercase">Confirmation Email</label>
+                                    <p className="font-medium text-slate-900">{formData.sendConfirmationEmail ? 'Enabled' : 'Disabled'}</p>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-semibold text-indigo-400 uppercase">Ticket Attachment</label>
+                                    <p className="font-medium text-slate-900">{formData.attachTicket ? 'Enabled' : 'Disabled'}</p>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    <div className="bg-white border border-slate-200 rounded-lg p-8 max-w-2xl mx-auto shadow-sm">
-                        <div className="text-center mb-8">
-                            <h1 className="text-2xl font-bold">{formData.title}</h1>
-                            <p className="text-slate-500 mt-2">{formData.description}</p>
-                        </div>
-
-                        <div className="space-y-4 opacity-70 pointer-events-none">
-                            <p className="text-center text-sm text-slate-400 italic mb-4">Form Preview</p>
-                            {questions.map(q => (
-                                <div key={q.id} className="grid gap-2">
-                                    <Label className="font-medium">
-                                        {q.label} {q.required && <span className="text-red-500">*</span>}
-                                    </Label>
-                                    <Input disabled placeholder={q.placeholder || "Answer..."} />
+                    {/* Form Preview */}
+                    <Card className="border-slate-200">
+                        <CardHeader>
+                            <CardTitle>Form Preview</CardTitle>
+                            <CardDescription>Preview how your registration form will look to attendees.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="bg-slate-50 rounded-lg p-6 space-y-6">
+                                <div className="mb-6">
+                                    <h2 className="text-xl font-bold text-slate-900">{formData.title}</h2>
+                                    <p className="text-slate-500 mt-1">{formData.description}</p>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
+                                {questions.map((q: any) => (
+                                    <div key={q.id}>
+                                        {q.itemType === 'section' ? (
+                                            <div className="pt-4 pb-2 border-t-2 border-indigo-500 mt-4 first:mt-0 first:pt-0 first:border-t-0">
+                                                {q.hasImage && q.imageUrl && (
+                                                    <img src={q.imageUrl} alt="" className="mb-3 max-h-40 rounded-lg border border-slate-200" />
+                                                )}
+                                                <h3 className="text-lg font-bold text-slate-900">{q.label}</h3>
+                                                {q.sectionDescription && (
+                                                    <p className="text-sm text-slate-500 mt-1">{q.sectionDescription}</p>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {q.hasImage && q.imageUrl && (
+                                                    <img src={q.imageUrl} alt="" className="max-h-28 rounded-lg border border-slate-200" />
+                                                )}
+                                                <Label className="font-medium">
+                                                    {q.label} {q.required && <span className="text-red-500">*</span>}
+                                                </Label>
+                                                {q.description && (
+                                                    <p className="text-xs text-slate-500">{q.description}</p>
+                                                )}
+                                                {q.type === 'textarea' ? (
+                                                    <textarea disabled placeholder={q.placeholder || "Answer..."} className="w-full p-2 border border-slate-200 rounded-lg bg-white min-h-[60px] text-sm" />
+                                                ) : q.type === 'select' ? (
+                                                    <select disabled className="w-full p-2 border border-slate-200 rounded-lg bg-white text-sm">
+                                                        <option>Select an option...</option>
+                                                        {q.options?.map((opt: string, i: number) => <option key={i}>{opt}</option>)}
+                                                    </select>
+                                                ) : q.type === 'radio' ? (
+                                                    <div className="space-y-1">
+                                                        {q.options?.map((opt: string, i: number) => (
+                                                            <label key={i} className="flex items-center gap-2 text-sm">
+                                                                <input type="radio" disabled name={q.id} className="w-4 h-4" />
+                                                                {opt}
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                ) : q.type === 'checkbox' ? (
+                                                    <div className="space-y-1">
+                                                        {q.options?.map((opt: string, i: number) => (
+                                                            <label key={i} className="flex items-center gap-2 text-sm">
+                                                                <input type="checkbox" disabled className="w-4 h-4" />
+                                                                {opt}
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <Input disabled placeholder={q.placeholder || "Answer..."} className="bg-white" />
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
             )}
 
@@ -785,14 +967,14 @@ function CreateEventContent() {
                     </Button>
 
                     <div className="flex gap-2">
-                        {step === 3 ? (
+                        {step === 4 ? (
                             <Button className="bg-green-600 hover:bg-green-700" onClick={handleSubmit} disabled={loading}>
-                                {loading ? 'Publishing...' : 'Publish Event'}
+                                {loading ? (isEditMode ? 'Updating...' : 'Publishing...') : (isEditMode ? 'Update Event' : 'Publish Event')}
                             </Button>
                         ) : (
                             <Button className="bg-indigo-600 hover:bg-indigo-700" onClick={async () => {
                                 await performSave();
-                                setStep(prev => Math.min(3, prev + 1));
+                                setStep(prev => Math.min(4, prev + 1));
                             }}>
                                 Next <ChevronRight className="w-4 h-4 ml-2" />
                             </Button>

@@ -21,7 +21,8 @@ import {
     Table2,
     RefreshCw,
     Unlink,
-    Link as LinkIcon
+    Link as LinkIcon,
+    Pencil
 } from 'lucide-react';
 import {
     Sheet,
@@ -112,7 +113,11 @@ export default function EventDetailPage() {
                 });
                 if (userRes.ok) {
                     const userData = await userRes.json();
-                    setUsername(userData.username);
+                    // Use username, or email prefix, or name as fallback
+                    const usernameValue = userData.username ||
+                        (userData.email ? userData.email.split('@')[0] : null) ||
+                        (userData.name ? userData.name.toLowerCase().replace(/\s+/g, '') : 'user');
+                    setUsername(usernameValue);
                 }
 
                 // Check Google Sheets access
@@ -242,10 +247,25 @@ export default function EventDetailPage() {
         link.click();
     };
 
-    const copyEventLink = () => {
-        const url = `${window.location.origin}/${username}/${event?.slug}`;
-        navigator.clipboard.writeText(url);
-        alert('Event link copied!');
+    const copyEventLink = async () => {
+        if (!username || !event?.slug) {
+            alert('Unable to copy link. Please try again.');
+            return;
+        }
+        const url = `${window.location.origin}/${username}/${event.slug}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            alert('Event link copied!');
+        } catch (err) {
+            // Fallback for browsers that don't support clipboard API
+            const textarea = document.createElement('textarea');
+            textarea.value = url;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('Event link copied!');
+        }
     };
 
     if (loading) {
@@ -372,6 +392,15 @@ export default function EventDetailPage() {
                     <Button variant="outline" size="sm" onClick={copyEventLink} className="border-slate-200">
                         <Copy className="w-4 h-4 mr-2" />
                         Copy Link
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`/dashboard/events/${event._id}/edit`)}
+                        className="border-slate-200"
+                    >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit
                     </Button>
                     {username && event.status === 'active' && (
                         <a href={`/${username}/${event.slug}`} target="_blank">

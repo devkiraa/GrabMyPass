@@ -50,8 +50,8 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                     </div>
 
                     <div className="flex-1 text-center md:text-left space-y-1 mb-2">
-                        <h1 className="text-3xl font-bold text-slate-900">{user.name || user.username}</h1>
-                        <p className="text-slate-500 font-medium">@{user.username || 'user'}</p>
+                        <h1 className="text-3xl font-bold text-slate-900">{user.name || user.username || (user.email?.split('@')[0])}</h1>
+                        <p className="text-slate-500 font-medium">@{user.username || (user.email?.split('@')[0]) || 'user'}</p>
 
                         <div className="flex items-center justify-center md:justify-start gap-4 text-sm text-slate-500 mt-3">
                             <div className="flex items-center gap-1">

@@ -59,13 +59,61 @@ export default function PublicEventPage() {
 
     const handleNextSection = () => {
         const currentFields = formSections[currentSectionPage];
-        // Validate required fields
+        // Validate required fields and custom validations
         for (const field of currentFields) {
-            if (field.required && field.itemType !== 'section') {
-                const val = answers[field.label];
+            if (field.itemType === 'section') continue;
+
+            const val = answers[field.label];
+
+            // Required field check
+            if (field.required) {
                 if (val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0)) {
                     setError(`Please fill in "${field.label}"`);
                     return;
+                }
+            }
+
+            // Skip further validation if empty and not required
+            if (!val || (typeof val === 'string' && val.trim() === '')) continue;
+
+            // Text validation
+            if (field.validation && typeof val === 'string') {
+                // Min length
+                if (field.validation.minLength && val.length < field.validation.minLength) {
+                    setError(`"${field.label}" must be at least ${field.validation.minLength} characters`);
+                    return;
+                }
+                // Max length
+                if (field.validation.maxLength && val.length > field.validation.maxLength) {
+                    setError(`"${field.label}" must be no more than ${field.validation.maxLength} characters`);
+                    return;
+                }
+                // Pattern
+                if (field.validation.pattern) {
+                    try {
+                        const regex = new RegExp(field.validation.pattern);
+                        if (!regex.test(val)) {
+                            setError(field.validation.patternError || `"${field.label}" has an invalid format`);
+                            return;
+                        }
+                    } catch (e) {
+                        // Invalid regex, skip check
+                    }
+                }
+            }
+
+            // Number validation
+            if (field.type === 'number' && field.validation) {
+                const numVal = parseFloat(val);
+                if (!isNaN(numVal)) {
+                    if (field.validation.min !== undefined && numVal < field.validation.min) {
+                        setError(`"${field.label}" must be at least ${field.validation.min}`);
+                        return;
+                    }
+                    if (field.validation.max !== undefined && numVal > field.validation.max) {
+                        setError(`"${field.label}" must be no more than ${field.validation.max}`);
+                        return;
+                    }
                 }
             }
         }
@@ -171,6 +219,18 @@ export default function PublicEventPage() {
 
     const handleInputChange = (label: string, value: any) => {
         setAnswers(prev => ({ ...prev, [label]: value }));
+    };
+
+    // Helper function to render simple markdown (bold, italic, links)
+    const renderDescription = (text: string) => {
+        if (!text) return null;
+        // Convert **bold** to <strong>
+        let html = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        // Convert *italic* to <em>
+        html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        // Convert [text](url) to <a>
+        html = html.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-[#00CC68] underline hover:text-[#00b359]">$1</a>');
+        return <span dangerouslySetInnerHTML={{ __html: html }} />;
     };
 
     // Check if email is already registered for this event
@@ -684,8 +744,8 @@ export default function PublicEventPage() {
     return (
         <div className="min-h-screen flex flex-col lg:flex-row bg-white selection:bg-[#00CC68]/20">
 
-            {/* Left Panel - Event Details (Sticky on Desktop) */}
-            <div className="lg:w-5/12 bg-[#303030] text-white relative flex flex-col justify-between p-8 lg:p-12 lg:h-screen lg:sticky lg:top-0 overflow-hidden">
+            {/* Left Panel - Event Details (Sticky on Desktop, Hidden on Mobile after Step 1) */}
+            <div className={`lg:w-5/12 bg-[#303030] text-white relative flex flex-col justify-between p-8 lg:p-12 lg:h-screen lg:sticky lg:top-0 overflow-hidden ${step !== 1 ? 'hidden lg:flex' : ''}`}>
                 {/* Background Decor */}
                 <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#00CC68]/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
                 <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
@@ -987,131 +1047,125 @@ export default function PublicEventPage() {
                                 </div>
                             )}
 
-                            <Card className="border-none shadow-xl bg-white overflow-hidden ring-1 ring-black/5">
-                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-6 py-4 border-b border-gray-100">
-                                    <div className="flex items-center gap-2">
-                                        <svg className="w-5 h-5 text-[#00CC68]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                        </svg>
-                                        <span className="font-semibold text-gray-700">Registration Form</span>
-                                        <span className="ml-auto text-xs text-gray-400">{event.formSchema?.filter((f: any) => f.itemType !== 'section').length || event.formSchema?.length || 0} questions</span>
-                                    </div>
-                                </div>
-                                <CardContent className="p-8">
-                                    <form onSubmit={handleSubmit} className="space-y-6">
-                                        {formSections[currentSectionPage]?.map((field: any) => {
-                                            // Handle Sections
-                                            if (field.itemType === 'section') {
-                                                return (
-                                                    <div key={field.id} className="pt-6 pb-2 border-t-2 border-indigo-500 mt-6 first:mt-0 first:pt-0 first:border-t-0">
-                                                        <h3 className="text-xl font-bold text-gray-900">{field.label}</h3>
-                                                        {field.sectionDescription && (
-                                                            <p className="text-sm text-gray-500 mt-1">{field.sectionDescription}</p>
-                                                        )}
-                                                    </div>
-                                                );
-                                            }
 
-                                            // Handle Questions
-                                            return (
-                                                <div key={field.id} className="space-y-3 group">
-                                                    <div>
-                                                        <Label className="text-base font-semibold text-gray-700 group-hover:text-[#00CC68] transition-colors">
-                                                            {field.label} {field.required && <span className="text-red-500 ml-1">*</span>}
-                                                        </Label>
-                                                        {field.description && (
-                                                            <p className="text-sm text-gray-500 mt-0.5">{field.description}</p>
-                                                        )}
-                                                    </div>
-
-                                                    {field.type === 'textarea' ? (
-                                                        <textarea
-                                                            className="flex min-h-[120px] w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-base ring-offset-white placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00CC68] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:bg-white focus:bg-white"
-                                                            placeholder={field.placeholder || "Your answer..."}
-                                                            required={field.required}
-                                                            value={answers[field.label] || ''}
-                                                            onChange={(e) => handleInputChange(field.label, e.target.value)}
-                                                        />
-                                                    ) : field.type === 'select' ? (
-                                                        <div className="relative">
-                                                            <select
-                                                                className="flex h-12 w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-base ring-offset-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00CC68] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:bg-white focus:bg-white appearance-none"
-                                                                required={field.required}
-                                                                value={answers[field.label] || ''}
-                                                                onChange={(e) => handleInputChange(field.label, e.target.value)}
-                                                            >
-                                                                <option value="">Select an option...</option>
-                                                                {field.options?.map((opt: string) => (
-                                                                    <option key={opt} value={opt}>{opt}</option>
-                                                                ))}
-                                                            </select>
-                                                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
-                                                                <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                                                            </div>
-                                                        </div>
-                                                    ) : field.type === 'radio' ? (
-                                                        <div className="space-y-3">
-                                                            {field.options?.map((opt: string) => (
-                                                                <label key={opt} className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-all ${answers[field.label] === opt ? 'border-[#00CC68] bg-[#00CC68]/5' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
-                                                                    <input
-                                                                        type="radio"
-                                                                        name={field.id}
-                                                                        value={opt}
-                                                                        checked={answers[field.label] === opt}
-                                                                        onChange={(e) => handleInputChange(field.label, e.target.value)}
-                                                                        className="w-5 h-5 text-[#00CC68] border-gray-300 focus:ring-[#00CC68]"
-                                                                    />
-                                                                    <span className={`font-medium ${answers[field.label] === opt ? 'text-gray-900' : 'text-gray-700'}`}>
-                                                                        {opt}
-                                                                    </span>
-                                                                </label>
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <Input
-                                                            type={field.type}
-                                                            placeholder={field.placeholder || "Your answer..."}
-                                                            required={field.required}
-                                                            value={answers[field.label] || ''}
-                                                            onChange={(e) => handleInputChange(field.label, e.target.value)}
-                                                            className="h-12 px-4 text-base bg-gray-50 border-gray-200 hover:bg-white focus:bg-white transition-all"
-                                                        />
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-
-                                        {error && (
-                                            <div className="p-3 rounded-md bg-red-50 text-red-600 text-sm flex items-center">
-                                                <AlertCircle className="w-4 h-4 mr-2" />
-                                                {error}
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                {formSections[currentSectionPage]?.map((field: any) => {
+                                    // Handle Sections
+                                    if (field.itemType === 'section') {
+                                        return (
+                                            <div key={field.id} className="pt-6 pb-2 border-t-2 border-indigo-500 mt-6 first:mt-0 first:pt-0 first:border-t-0">
+                                                {field.hasImage && field.imageUrl && (
+                                                    <img src={field.imageUrl} alt="" className="mb-4 max-h-64 rounded-lg border border-gray-200" />
+                                                )}
+                                                {field.label && <h3 className="text-xl font-bold text-gray-900">{field.label}</h3>}
+                                                {field.sectionDescription && (
+                                                    <p className="text-sm text-gray-500 mt-1">{renderDescription(field.sectionDescription)}</p>
+                                                )}
                                             </div>
-                                        )}
+                                        );
+                                    }
 
-                                        <div className="flex gap-4">
-                                            {currentSectionPage < formSections.length - 1 ? (
-                                                <Button
-                                                    type="button"
-                                                    onClick={handleNextSection}
-                                                    className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:translate-y-[-1px]"
-                                                >
-                                                    Next <ArrowRight className="w-5 h-5 ml-2" />
-                                                </Button>
+                                    // Handle Questions
+                                    return (
+                                        <div key={field.id} className="space-y-3 group">
+                                            <div>
+                                                <Label className="text-base font-semibold text-gray-700 group-hover:text-[#00CC68] transition-colors">
+                                                    {field.label} {field.required && <span className="text-red-500 ml-1">*</span>}
+                                                </Label>
+                                                {field.description && (
+                                                    <p className="text-sm text-gray-500 mt-0.5">{renderDescription(field.description)}</p>
+                                                )}
+                                                {field.hasImage && field.imageUrl && (
+                                                    <img src={field.imageUrl} alt="" className="mt-2 max-h-48 rounded-lg border border-gray-200" />
+                                                )}
+                                            </div>
+
+                                            {field.type === 'textarea' ? (
+                                                <textarea
+                                                    className="flex min-h-[120px] w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-base ring-offset-white placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00CC68] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:bg-white focus:bg-white"
+                                                    placeholder={field.placeholder || "Your answer..."}
+                                                    required={field.required}
+                                                    value={answers[field.label] || ''}
+                                                    onChange={(e) => handleInputChange(field.label, e.target.value)}
+                                                />
+                                            ) : field.type === 'select' ? (
+                                                <div className="relative">
+                                                    <select
+                                                        className="flex h-12 w-full items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-base ring-offset-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00CC68] focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all hover:bg-white focus:bg-white appearance-none"
+                                                        required={field.required}
+                                                        value={answers[field.label] || ''}
+                                                        onChange={(e) => handleInputChange(field.label, e.target.value)}
+                                                    >
+                                                        <option value="">Select an option...</option>
+                                                        {field.options?.map((opt: string) => (
+                                                            <option key={opt} value={opt}>{opt}</option>
+                                                        ))}
+                                                    </select>
+                                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                                        <svg width="12" height="8" viewBox="0 0 12 8" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 1.5L6 6.5L11 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                                    </div>
+                                                </div>
+                                            ) : field.type === 'radio' ? (
+                                                <div className="space-y-3">
+                                                    {field.options?.map((opt: string) => (
+                                                        <label key={opt} className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-all ${answers[field.label] === opt ? 'border-[#00CC68] bg-[#00CC68]/5' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'}`}>
+                                                            <input
+                                                                type="radio"
+                                                                name={field.id}
+                                                                value={opt}
+                                                                checked={answers[field.label] === opt}
+                                                                onChange={(e) => handleInputChange(field.label, e.target.value)}
+                                                                className="w-5 h-5 text-[#00CC68] border-gray-300 focus:ring-[#00CC68]"
+                                                            />
+                                                            <span className={`font-medium ${answers[field.label] === opt ? 'text-gray-900' : 'text-gray-700'}`}>
+                                                                {opt}
+                                                            </span>
+                                                        </label>
+                                                    ))}
+                                                </div>
                                             ) : (
-                                                <Button type="submit" className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:translate-y-[-1px]" disabled={submitting}>
-                                                    {submitting ? (
-                                                        <>
-                                                            <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
-                                                        </>
-                                                    ) : (
-                                                        'Complete Registration'
-                                                    )}
-                                                </Button>
+                                                <Input
+                                                    type={field.type}
+                                                    placeholder={field.placeholder || "Your answer..."}
+                                                    required={field.required}
+                                                    value={answers[field.label] || ''}
+                                                    onChange={(e) => handleInputChange(field.label, e.target.value)}
+                                                    className="h-12 px-4 text-base bg-gray-50 border-gray-200 hover:bg-white focus:bg-white transition-all"
+                                                />
                                             )}
                                         </div>
-                                    </form>
-                                </CardContent>
-                            </Card>
+                                    );
+                                })}
+
+                                {error && (
+                                    <div className="p-3 rounded-md bg-red-50 text-red-600 text-sm flex items-center">
+                                        <AlertCircle className="w-4 h-4 mr-2" />
+                                        {error}
+                                    </div>
+                                )}
+
+                                <div className="flex gap-4">
+                                    {currentSectionPage < formSections.length - 1 ? (
+                                        <Button
+                                            type="button"
+                                            onClick={handleNextSection}
+                                            className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:translate-y-[-1px]"
+                                        >
+                                            Next <ArrowRight className="w-5 h-5 ml-2" />
+                                        </Button>
+                                    ) : (
+                                        <Button type="submit" className="w-full h-14 bg-[#00CC68] hover:bg-[#00b359] text-white text-lg font-bold shadow-lg shadow-[#00CC68]/20 transition-all hover:translate-y-[-1px]" disabled={submitting}>
+                                            {submitting ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processing...
+                                                </>
+                                            ) : (
+                                                'Complete Registration'
+                                            )}
+                                        </Button>
+                                    )}
+                                </div>
+                            </form>
                         </div>
                     )}
 
@@ -1119,7 +1173,7 @@ export default function PublicEventPage() {
                         <p>Powered by <span className="font-semibold text-gray-600">GrabMyPass</span></p>
                     </div>
                 </div>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 }

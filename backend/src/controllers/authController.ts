@@ -98,7 +98,7 @@ const downloadImageAsBase64 = async (url: string): Promise<string | null> => {
 
 export const register = async (req: Request, res: Response) => {
     try {
-        const { email, password, role } = req.body;
+        const { email, password, role, name } = req.body;
 
         // Check if user exists
         const existingUser = await User.findOne({ email });
@@ -107,14 +107,29 @@ export const register = async (req: Request, res: Response) => {
         // Hash Password
         const hashedPassword = await bcrypt.hash(password, 12);
 
+        // Generate username from email prefix
+        let baseUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+        let username = baseUsername;
+
+        // Check if username is already taken, if so append random numbers
+        let usernameExists = await User.findOne({ username });
+        let attempts = 0;
+        while (usernameExists && attempts < 10) {
+            username = `${baseUsername}${Math.floor(Math.random() * 1000)}`;
+            usernameExists = await User.findOne({ username });
+            attempts++;
+        }
+
         // Create User
         const user = await User.create({
             email,
             password: hashedPassword,
+            username,
+            name: name || baseUsername,
             role: role || 'host'
         });
 
-        res.status(201).json({ message: 'User created successfully', userId: user._id });
+        res.status(201).json({ message: 'User created successfully', userId: user._id, username });
     } catch (error) {
         res.status(500).json({ message: 'Something went wrong', error });
     }
@@ -341,7 +356,7 @@ export const login = async (req: Request, res: Response) => {
     try {
         const { email, password } = req.body;
 
-        const user = await User.findOne({ email });
+        let user = await User.findOne({ email });
         if (!user) return res.status(404).json({ message: 'User not found' });
 
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
@@ -357,11 +372,30 @@ export const login = async (req: Request, res: Response) => {
             });
         }
 
+        // Auto-generate username if not set
+        // @ts-ignore
+        if (!user.username) {
+            let baseUsername = email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (baseUsername.length < 3) baseUsername = 'user' + baseUsername;
+            let username = baseUsername;
+            let counter = 1;
+
+            while ((await User.findOne({ username })) && counter < 100) {
+                username = `${baseUsername}${counter}`;
+                counter++;
+            }
+            if (await User.findOne({ username })) {
+                username = `${baseUsername}${Date.now()}`;
+            }
+
+            user = await User.findByIdAndUpdate(user._id, { username }, { new: true });
+        }
+
         // Create Session
-        const session = await createSession(user._id.toString(), req, 'email');
+        const session = await createSession(user!._id.toString(), req, 'email');
 
         const token = jwt.sign(
-            { email: user.email, id: user._id, role: user.role, sessionId: session._id },
+            { email: user!.email, id: user!._id, role: user!.role, sessionId: session._id },
             process.env.JWT_SECRET || 'test_secret',
             { expiresIn: '1d' }
         );

@@ -54,8 +54,26 @@ export const getEvent = async (req: Request, res: Response) => {
     try {
         const { username, slug } = req.params;
 
-        // Find Host
-        const host = await User.findOne({ username });
+        // Find Host - try multiple strategies
+        // 1. First try exact username match
+        let host = await User.findOne({ username });
+
+        // 2. If not found, try email prefix match
+        if (!host) {
+            host = await User.findOne({
+                email: { $regex: `^${username}@`, $options: 'i' }
+            });
+        }
+
+        // 3. If still not found, try normalized name match
+        if (!host) {
+            const allUsers = await User.find();
+            host = allUsers.find(u => {
+                const normalizedName = (u.name || '').toLowerCase().replace(/\s+/g, '');
+                return normalizedName === username.toLowerCase();
+            }) || null;
+        }
+
         if (!host) return res.status(404).json({ message: 'Host not found' });
 
         const event = await Event.findOne({ hostId: host._id, slug });
@@ -63,7 +81,7 @@ export const getEvent = async (req: Request, res: Response) => {
 
         // Return event with host details embedded if needed, or frontend fetches host differently
         // For simple display, event + host username is enough
-        res.status(200).json({ ...event.toObject(), host: { username: host.username, name: host.name, avatar: host.avatar } });
+        res.status(200).json({ ...event.toObject(), host: { username: host.username || username, name: host.name, avatar: host.avatar } });
     } catch (error) {
         res.status(500).json({ message: 'Failed to fetch event', error });
     }

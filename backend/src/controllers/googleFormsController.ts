@@ -226,9 +226,22 @@ export const getGoogleForm = async (req: Request, res: Response) => {
         // Convert Google Form to our format
         const convertedQuestions = convertGoogleFormToOurFormat(googleForm);
 
+        // Extract banner/header image if present
+        let bannerImage = null;
+        if (googleForm.info?.documentTitle && googleForm.info?.documentTitle.image) {
+            bannerImage = googleForm.info.documentTitle.image.contentUri ||
+                googleForm.info.documentTitle.image.sourceUri || null;
+        }
+        // Also check for header image in form settings
+        if (!bannerImage && googleForm.formSettings?.headerImage) {
+            bannerImage = googleForm.formSettings.headerImage.contentUri ||
+                googleForm.formSettings.headerImage.sourceUri || null;
+        }
+
         res.json({
             title: googleForm.info?.title || 'Untitled Form',
             description: googleForm.info?.description || '',
+            bannerImage: bannerImage,
             questions: convertedQuestions,
             originalForm: googleForm // Include original for debugging
         });
@@ -245,6 +258,21 @@ function convertGoogleFormToOurFormat(googleForm: any): any[] {
     if (!googleForm.items) return items;
 
     for (const item of googleForm.items) {
+        // Handle Image Items (standalone images in the form)
+        if (item.imageItem) {
+            const imageItem = item.imageItem;
+            // Add image as a section with image
+            items.push({
+                id: `img-${item.itemId}`,
+                itemType: 'section',
+                label: item.title || '',
+                sectionDescription: item.description || '',
+                hasImage: true,
+                imageUrl: imageItem.image?.contentUri || imageItem.image?.sourceUri || ''
+            });
+            continue;
+        }
+
         // Handle Page Break (Section)
         if (item.pageBreakItem) {
             items.push({
@@ -259,13 +287,21 @@ function convertGoogleFormToOurFormat(googleForm: any): any[] {
         // Handle Questions
         if (item.questionItem) {
             const question = item.questionItem.question;
-            const baseItem = {
+            const questionImage = item.questionItem.image;
+
+            const baseItem: any = {
                 id: `q-${item.itemId}`,
                 itemType: 'question',
                 label: item.title || 'Question',
                 description: item.description || '',
                 required: question?.required || false
             };
+
+            // Add image if present in question
+            if (questionImage) {
+                baseItem.hasImage = true;
+                baseItem.imageUrl = questionImage.contentUri || questionImage.sourceUri || '';
+            }
 
             // Text question (short answer)
             if (question?.textQuestion) {
@@ -327,6 +363,17 @@ function convertGoogleFormToOurFormat(googleForm: any): any[] {
                     placeholder: ''
                 });
             }
+        }
+
+        // Handle Video Items (treat as link in description)
+        if (item.videoItem) {
+            const videoItem = item.videoItem;
+            items.push({
+                id: `video-${item.itemId}`,
+                itemType: 'section',
+                label: item.title || 'Video',
+                sectionDescription: `Watch: ${videoItem.video?.youtubeUri || ''}\n${item.description || ''}`
+            });
         }
     }
 

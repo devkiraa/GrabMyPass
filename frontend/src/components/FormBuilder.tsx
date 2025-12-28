@@ -11,6 +11,8 @@ import {
     GripVertical,
     Copy,
     ChevronDown,
+    ChevronUp,
+    ChevronRight,
     Settings2,
     SeparatorHorizontal,
     Type,
@@ -24,11 +26,16 @@ import {
     Mail,
     Clock,
     Link as LinkIcon,
+    Link2,
     ToggleLeft,
     FileSpreadsheet,
     RefreshCw,
     Download,
-    Unlink
+    Unlink,
+    Bold,
+    Italic,
+    Image,
+    Settings
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import {
@@ -51,6 +58,18 @@ interface FormItem {
     options?: string[];
     // Section properties (for section type)
     sectionDescription?: string;
+    // Validation properties
+    validation?: {
+        minLength?: number;
+        maxLength?: number;
+        pattern?: string;
+        patternError?: string;
+        min?: number;
+        max?: number;
+    };
+    // Rich content
+    hasImage?: boolean;
+    imageUrl?: string;
 }
 
 interface GoogleForm {
@@ -209,8 +228,21 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
             );
             if (res.ok) {
                 const data = await res.json();
-                // Replace current questions with imported ones
-                onChange(data.questions);
+                let importedQuestions = data.questions;
+
+                // Add banner image as first section if present
+                if (data.bannerImage) {
+                    const bannerSection: FormItem = {
+                        id: `banner-${Date.now()}`,
+                        itemType: 'section',
+                        label: '',
+                        hasImage: true,
+                        imageUrl: data.bannerImage
+                    };
+                    importedQuestions = [bannerSection, ...importedQuestions];
+                }
+
+                onChange(importedQuestions);
                 setSelectedGoogleForm('');
             }
         } catch (error) {
@@ -246,7 +278,21 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
             );
             if (res.ok) {
                 const data = await res.json();
-                onChange(data.questions);
+                let importedQuestions = data.questions;
+
+                // Add banner image as first section if present
+                if (data.bannerImage) {
+                    const bannerSection: FormItem = {
+                        id: `banner-${Date.now()}`,
+                        itemType: 'section',
+                        label: '',
+                        hasImage: true,
+                        imageUrl: data.bannerImage
+                    };
+                    importedQuestions = [bannerSection, ...importedQuestions];
+                }
+
+                onChange(importedQuestions);
                 setFormUrl('');
             } else {
                 const error = await res.json();
@@ -601,8 +647,43 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
                                                 placeholder="Description (optional)"
                                             />
 
+                                            {/* Section Image */}
+                                            {item.hasImage && item.imageUrl && (
+                                                <div className="relative inline-block mt-2">
+                                                    <img src={item.imageUrl} alt="Section" className="max-h-48 rounded-lg border border-slate-200" />
+                                                    {isActive && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                updateItem(item.id, 'imageUrl', '');
+                                                                updateItem(item.id, 'hasImage', false);
+                                                            }}
+                                                            className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+
                                             {isActive && (
                                                 <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
+                                                    {!item.hasImage && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                                const imageUrl = prompt('Enter image URL:');
+                                                                if (imageUrl) {
+                                                                    updateItem(item.id, 'imageUrl', imageUrl);
+                                                                    updateItem(item.id, 'hasImage', true);
+                                                                }
+                                                            }}
+                                                            className="text-slate-500"
+                                                        >
+                                                            <Image className="w-4 h-4 mr-1" /> Add Image
+                                                        </Button>
+                                                    )}
                                                     <Button variant="ghost" size="sm" onClick={() => duplicateItem(item.id)} className="text-slate-500">
                                                         <Copy className="w-4 h-4 mr-1" /> Duplicate
                                                     </Button>
@@ -663,14 +744,183 @@ export function FormBuilder({ questions, onChange, draftId }: FormBuilderProps) 
                                             </div>
                                         </div>
 
-                                        {/* Description (optional) */}
+                                        {/* Description with rich text toolbar */}
                                         {isActive && (
-                                            <Input
-                                                value={item.description || ''}
-                                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                                className="text-sm text-slate-500 border-transparent hover:border-slate-200 focus:border-indigo-500 px-0 h-auto"
-                                                placeholder="Description (optional)"
-                                            />
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-1 p-1 bg-slate-50 rounded-lg border border-slate-200">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const desc = item.description || '';
+                                                            updateItem(item.id, 'description', desc + '**bold text**');
+                                                        }}
+                                                        className="p-1.5 hover:bg-white rounded transition-colors"
+                                                        title="Bold"
+                                                    >
+                                                        <Bold className="w-4 h-4 text-slate-600" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const desc = item.description || '';
+                                                            updateItem(item.id, 'description', desc + '*italic text*');
+                                                        }}
+                                                        className="p-1.5 hover:bg-white rounded transition-colors"
+                                                        title="Italic"
+                                                    >
+                                                        <Italic className="w-4 h-4 text-slate-600" />
+                                                    </button>
+                                                    <div className="w-px h-4 bg-slate-300 mx-1" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const url = prompt('Enter URL:');
+                                                            if (url) {
+                                                                const desc = item.description || '';
+                                                                updateItem(item.id, 'description', desc + `[link text](${url})`);
+                                                            }
+                                                        }}
+                                                        className="p-1.5 hover:bg-white rounded transition-colors"
+                                                        title="Insert Link"
+                                                    >
+                                                        <Link2 className="w-4 h-4 text-slate-600" />
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const imageUrl = prompt('Enter image URL:');
+                                                            if (imageUrl) {
+                                                                updateItem(item.id, 'imageUrl', imageUrl);
+                                                                updateItem(item.id, 'hasImage', true);
+                                                            }
+                                                        }}
+                                                        className="p-1.5 hover:bg-white rounded transition-colors"
+                                                        title="Add Image"
+                                                    >
+                                                        <Image className="w-4 h-4 text-slate-600" />
+                                                    </button>
+                                                </div>
+                                                <textarea
+                                                    value={item.description || ''}
+                                                    onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                                    className="w-full text-sm text-slate-500 border border-slate-200 rounded-lg p-2 min-h-[60px] focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 resize-y"
+                                                    placeholder="Description (optional) - supports **bold**, *italic*, and [links](url)"
+                                                />
+                                                {item.hasImage && item.imageUrl && (
+                                                    <div className="relative inline-block">
+                                                        <img src={item.imageUrl} alt="Question" className="max-h-32 rounded-lg border border-slate-200" />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                updateItem(item.id, 'imageUrl', '');
+                                                                updateItem(item.id, 'hasImage', false);
+                                                            }}
+                                                            className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                                        >
+                                                            <Trash2 className="w-3 h-3" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Validation Settings for text/number fields */}
+                                        {isActive && ['text', 'textarea', 'email', 'number', 'tel', 'url'].includes(item.type || '') && (
+                                            <details className="group bg-slate-50 rounded-lg border border-slate-200">
+                                                <summary className="flex items-center gap-2 p-3 cursor-pointer text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg">
+                                                    <Settings className="w-4 h-4 text-slate-500" />
+                                                    <span>Validation Settings</span>
+                                                    <ChevronRight className="w-4 h-4 ml-auto text-slate-400 group-open:rotate-90 transition-transform" />
+                                                </summary>
+                                                <div className="p-3 pt-0 space-y-3 border-t border-slate-200 mt-2">
+                                                    {['text', 'textarea', 'email', 'tel', 'url'].includes(item.type || '') && (
+                                                        <>
+                                                            <div className="grid grid-cols-2 gap-3">
+                                                                <div>
+                                                                    <Label className="text-xs text-slate-500">Min Length</Label>
+                                                                    <Input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        value={item.validation?.minLength || ''}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value ? parseInt(e.target.value) : undefined;
+                                                                            updateItem(item.id, 'validation', { ...item.validation, minLength: val });
+                                                                        }}
+                                                                        className="h-8 text-sm"
+                                                                        placeholder="0"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <Label className="text-xs text-slate-500">Max Length</Label>
+                                                                    <Input
+                                                                        type="number"
+                                                                        min="0"
+                                                                        value={item.validation?.maxLength || ''}
+                                                                        onChange={(e) => {
+                                                                            const val = e.target.value ? parseInt(e.target.value) : undefined;
+                                                                            updateItem(item.id, 'validation', { ...item.validation, maxLength: val });
+                                                                        }}
+                                                                        className="h-8 text-sm"
+                                                                        placeholder="No limit"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-xs text-slate-500">Pattern (Regex)</Label>
+                                                                <Input
+                                                                    value={item.validation?.pattern || ''}
+                                                                    onChange={(e) => {
+                                                                        updateItem(item.id, 'validation', { ...item.validation, pattern: e.target.value });
+                                                                    }}
+                                                                    className="h-8 text-sm font-mono"
+                                                                    placeholder="e.g. ^[A-Z]{2}[0-9]{4}$"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-xs text-slate-500">Pattern Error Message</Label>
+                                                                <Input
+                                                                    value={item.validation?.patternError || ''}
+                                                                    onChange={(e) => {
+                                                                        updateItem(item.id, 'validation', { ...item.validation, patternError: e.target.value });
+                                                                    }}
+                                                                    className="h-8 text-sm"
+                                                                    placeholder="Invalid format"
+                                                                />
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                    {item.type === 'number' && (
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <div>
+                                                                <Label className="text-xs text-slate-500">Minimum Value</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    value={item.validation?.min ?? ''}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                                                                        updateItem(item.id, 'validation', { ...item.validation, min: val });
+                                                                    }}
+                                                                    className="h-8 text-sm"
+                                                                    placeholder="No min"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <Label className="text-xs text-slate-500">Maximum Value</Label>
+                                                                <Input
+                                                                    type="number"
+                                                                    value={item.validation?.max ?? ''}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value ? parseFloat(e.target.value) : undefined;
+                                                                        updateItem(item.id, 'validation', { ...item.validation, max: val });
+                                                                    }}
+                                                                    className="h-8 text-sm"
+                                                                    placeholder="No max"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </details>
                                         )}
 
                                         {/* Placeholder for text-based fields */}
