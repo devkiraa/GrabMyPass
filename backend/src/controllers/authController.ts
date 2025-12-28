@@ -234,7 +234,14 @@ export const googleAuthCallback = async (req: Request, res: Response) => {
                 googleId: profile.id,
                 googleAvatar: profile.picture, // Store Google avatar URL for reference
                 avatar: avatarBase64 || profile.picture, // Store base64 or fallback to URL
-                role: 'host' // Default role
+                role: 'user' // Default role for new signups
+            });
+
+            // Send welcome email to new users (async, don't wait)
+            import('../services/systemEmailService').then(({ sendWelcomeEmail }) => {
+                const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
+                sendWelcomeEmail(profile.email, profile.name || profile.email.split('@')[0], loginUrl)
+                    .catch((err: any) => console.log('Welcome email failed:', err.message));
             });
         } else {
             // Update googleId and googleAvatar (always keep in sync with Google)

@@ -186,6 +186,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <Monitor className="mr-3 h-5 w-5" />
                                 Sessions
                             </Button>
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/email' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}
+                                onClick={() => router.push('/dashboard/admin/email')}
+                            >
+                                <Mail className="mr-3 h-5 w-5" />
+                                System Email
+                            </Button>
 
                             <div className="pt-4 mt-4 border-t border-slate-800">
                                 <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">Templates</span>

@@ -206,6 +206,7 @@ export const getMyRegistrations = async (req: Request, res: Response) => {
 
 // Upgrade user from 'user' to 'host' role
 import { User } from '../models/User';
+import { sendHostUpgradeEmail } from '../services/systemEmailService';
 
 export const upgradeToHost = async (req: Request, res: Response) => {
     try {
@@ -223,6 +224,11 @@ export const upgradeToHost = async (req: Request, res: Response) => {
 
         user.role = 'host';
         await user.save();
+
+        // Send host upgrade confirmation email (async, don't wait)
+        const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`;
+        sendHostUpgradeEmail(user.email, user.name || user.email.split('@')[0], dashboardUrl)
+            .catch(err => console.log('Host upgrade email failed:', err.message));
 
         res.status(200).json({ message: 'You are now a host! You can create events.', role: 'host' });
     } catch (error) {

@@ -14,12 +14,20 @@ import {
     getUserLoginHistory,
     terminateSession,
     terminateAllUserSessions,
-    getAllActiveSessions
+    getAllActiveSessions,
+    getSystemSettings,
+    updateSystemSettings,
+    testSystemEmail,
+    getSystemEmailAuthUrl,
+    systemEmailCallback
 } from '../controllers/adminController';
 
 export const adminRouter = express.Router();
 
-// All admin routes require Login AND Admin Role
+// OAuth callback - no auth required (user is redirected from Google)
+adminRouter.get('/system-email/callback', systemEmailCallback);
+
+// All other admin routes require Login AND Admin Role
 adminRouter.use(verifyToken, verifyAdmin);
 
 adminRouter.get('/stats', getSystemStats);
@@ -39,3 +47,9 @@ adminRouter.get('/users/:userId/sessions', getUserSessions);           // Active
 adminRouter.get('/users/:userId/login-history', getUserLoginHistory);  // Full login history
 adminRouter.delete('/sessions/:sessionId', terminateSession);          // Kill single session
 adminRouter.delete('/users/:userId/sessions', terminateAllUserSessions); // Kill all user sessions
+
+// System Settings
+adminRouter.get('/settings', getSystemSettings);
+adminRouter.patch('/settings', updateSystemSettings);
+adminRouter.post('/settings/test-email', testSystemEmail);
+adminRouter.get('/system-email/auth-url', getSystemEmailAuthUrl);      // Get Gmail OAuth URL

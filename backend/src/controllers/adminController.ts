@@ -390,3 +390,231 @@ export const getAllActiveSessions = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to fetch sessions' });
     }
 };
+
+// ==================== SYSTEM SETTINGS ====================
+
+import { SystemSettings } from '../models/SystemSettings';
+import { EmailAccount } from '../models/EmailAccount';
+
+// Get system settings
+export const getSystemSettings = async (req: Request, res: Response) => {
+    try {
+        const settings = await (SystemSettings as any).getSettings();
+
+        // Populate email account info if configured
+        let emailAccountInfo = null;
+        if (settings.systemEmail?.accountId) {
+            const account = await EmailAccount.findById(settings.systemEmail.accountId)
+                .select('email name provider isActive');
+            emailAccountInfo = account;
+        }
+
+        // Get all available email accounts (for dropdown)
+        const availableEmailAccounts = await EmailAccount.find({ isActive: true })
+            .select('email name provider userId')
+            .populate('userId', 'name email');
+
+        res.json({
+            settings,
+            emailAccountInfo,
+            availableEmailAccounts
+        });
+    } catch (error) {
+        console.error('Get system settings error:', error);
+        res.status(500).json({ message: 'Failed to fetch system settings' });
+    }
+};
+
+// Update system settings
+export const updateSystemSettings = async (req: Request, res: Response) => {
+    try {
+        const { systemEmail, emailSettings, emailTemplates, platformName, supportEmail, maintenanceMode, registrationEnabled } = req.body;
+
+        const settings = await (SystemSettings as any).getSettings();
+
+        // Update fields
+        if (systemEmail !== undefined) {
+            settings.systemEmail = { ...settings.systemEmail, ...systemEmail };
+        }
+        if (emailSettings !== undefined) {
+            settings.emailSettings = { ...settings.emailSettings, ...emailSettings };
+        }
+        if (emailTemplates !== undefined) {
+            settings.emailTemplates = { ...settings.emailTemplates, ...emailTemplates };
+        }
+        if (platformName !== undefined) settings.platformName = platformName;
+        if (supportEmail !== undefined) settings.supportEmail = supportEmail;
+        if (maintenanceMode !== undefined) settings.maintenanceMode = maintenanceMode;
+        if (registrationEnabled !== undefined) settings.registrationEnabled = registrationEnabled;
+
+        await settings.save();
+
+        // Audit log
+        await AuditLog.create({
+            // @ts-ignore
+            adminId: req.user.id,
+            action: 'UPDATE_SYSTEM_SETTINGS',
+            details: {
+                updatedFields: Object.keys(req.body)
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        res.json({ message: 'Settings updated successfully', settings });
+    } catch (error) {
+        console.error('Update system settings error:', error);
+        res.status(500).json({ message: 'Failed to update system settings' });
+    }
+};
+
+// Test system email
+export const testSystemEmail = async (req: Request, res: Response) => {
+    try {
+        const { recipientEmail } = req.body;
+
+        if (!recipientEmail) {
+            return res.status(400).json({ message: 'Recipient email is required' });
+        }
+
+        // Import and use the system email service
+        const { sendSystemEmail } = require('../services/systemEmailService');
+
+        const success = await sendSystemEmail('welcome', recipientEmail, {
+            userName: 'Test User',
+            loginUrl: process.env.FRONTEND_URL || 'http://localhost:3000'
+        });
+
+        if (success) {
+            res.json({ message: 'Test email sent successfully' });
+        } else {
+            res.status(500).json({ message: 'Failed to send test email. Check your system email configuration.' });
+        }
+    } catch (error: any) {
+        console.error('Test system email error:', error);
+        res.status(500).json({ message: error.message || 'Failed to send test email' });
+    }
+};
+
+// ==================== ADMIN SYSTEM EMAIL OAUTH ====================
+
+import { google } from 'googleapis';
+// import { EmailAccount } from '../models/EmailAccount'; // Already imported above
+
+// Get Gmail OAuth URL for Admin System Email
+export const getSystemEmailAuthUrl = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const adminId = req.user?.id;
+
+        if (!adminId) {
+            return res.status(401).json({ message: 'Not authenticated' });
+        }
+
+        const oauth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_EMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_EMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
+            `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/admin/system-email/callback`
+        );
+
+        const scopes = [
+            'https://www.googleapis.com/auth/gmail.send',
+            'https://www.googleapis.com/auth/userinfo.email',
+            'https://www.googleapis.com/auth/userinfo.profile'
+        ];
+
+        const url = oauth2Client.generateAuthUrl({
+            access_type: 'offline',
+            scope: scopes,
+            prompt: 'consent',
+            state: `admin_${adminId}` // Mark as admin flow
+        });
+
+        res.json({ url });
+    } catch (error) {
+        console.error('System email auth URL error:', error);
+        res.status(500).json({ message: 'Failed to generate auth URL' });
+    }
+};
+
+// Gmail OAuth callback for Admin System Email
+export const systemEmailCallback = async (req: Request, res: Response) => {
+    try {
+        const { code, state } = req.query;
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+        // Get adminId from state parameter (prefixed with 'admin_')
+        const adminId = (state as string)?.replace('admin_', '');
+
+        if (!code) {
+            return res.redirect(`${frontendUrl}/dashboard/admin/email?error=no_code`);
+        }
+
+        if (!adminId) {
+            return res.redirect(`${frontendUrl}/dashboard/admin/email?error=no_admin`);
+        }
+
+        const oauth2Client = new google.auth.OAuth2(
+            process.env.GOOGLE_EMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_EMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET,
+            `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/admin/system-email/callback`
+        );
+
+        const { tokens } = await oauth2Client.getToken(code as string);
+        oauth2Client.setCredentials(tokens);
+
+        // Get user email from Gmail
+        const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+        const userInfo = await oauth2.userinfo.get();
+        const email = userInfo.data.email;
+        const name = userInfo.data.name;
+
+        if (!email) {
+            return res.redirect(`${frontendUrl}/dashboard/admin/email?error=no_email`);
+        }
+
+        // Save or update email account (using admin's userId)
+        const mongoose = require('mongoose');
+        const adminObjectId = new mongoose.Types.ObjectId(adminId);
+
+        let existingAccount = await EmailAccount.findOne({ userId: adminObjectId, email });
+
+        if (existingAccount) {
+            existingAccount.accessToken = tokens.access_token || '';
+            existingAccount.refreshToken = tokens.refresh_token || existingAccount.refreshToken;
+            existingAccount.tokenExpiry = tokens.expiry_date ? new Date(tokens.expiry_date) : undefined;
+            existingAccount.isVerified = true;
+            existingAccount.isActive = true;
+            existingAccount.name = name || existingAccount.name;
+            await existingAccount.save();
+        } else {
+            existingAccount = await EmailAccount.create({
+                userId: adminObjectId,
+                email,
+                name,
+                provider: 'gmail',
+                accessToken: tokens.access_token,
+                refreshToken: tokens.refresh_token,
+                tokenExpiry: tokens.expiry_date ? new Date(tokens.expiry_date) : undefined,
+                isVerified: true,
+                isActive: true // Auto-activate for system email
+            });
+        }
+
+        // Auto-update system settings to use this account
+        const { SystemSettings } = require('../models/SystemSettings');
+        const settings = await (SystemSettings as any).getSettings();
+        settings.systemEmail = {
+            ...settings.systemEmail,
+            enabled: true,
+            accountId: existingAccount._id
+        };
+        await settings.save();
+
+        res.redirect(`${frontendUrl}/dashboard/admin/email?success=true&email=${email}`);
+    } catch (error) {
+        console.error('System email callback error:', error);
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        res.redirect(`${frontendUrl}/dashboard/admin/email?error=callback_failed`);
+    }
+};
