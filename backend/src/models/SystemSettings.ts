@@ -56,7 +56,7 @@ const SystemSettingsSchema = new mongoose.Schema({
         tokenExpiry: { type: Date },
         folderId: { type: String },
         lastBackup: { type: Date },
-        backupFrequency: { type: String, enum: ['hourly', 'daily', 'weekly'], default: 'daily' }
+        backupFrequency: { type: String, enum: ['hourly', '4x_daily', 'daily', 'weekly'], default: '4x_daily' }
     }
 
 }, { timestamps: true });

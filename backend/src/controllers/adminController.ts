@@ -587,22 +587,35 @@ export const getLogsDriveAuthUrl = async (req: Request, res: Response) => {
 // Drive OAuth callback
 export const logsDriveCallback = async (req: Request, res: Response) => {
     try {
-        const { code, state } = req.query;
+        const { code, state, error: oauthError } = req.query;
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+        // Handle OAuth error from Google
+        if (oauthError) {
+            logger.error('admin.Drive OAuth error from Google:', { error: oauthError });
+            return res.redirect(`${frontendUrl}/dashboard/admin/logs?error=oauth_denied&details=${encodeURIComponent(oauthError as string)}`);
+        }
 
         const adminId = (state as string)?.replace('drive_logs_', '');
 
         if (!code || !adminId) {
+            logger.error('admin.Drive callback missing params:', { hasCode: !!code, hasAdminId: !!adminId, state });
             return res.redirect(`${frontendUrl}/dashboard/admin/logs?error=invalid_callback`);
         }
 
+        logger.info('admin.Processing Drive callback', { adminId });
         const result = await handleDriveCallback(code as string, adminId);
         
+        logger.info('admin.Drive connected successfully', { email: result.email, folderId: result.folderId });
         res.redirect(`${frontendUrl}/dashboard/admin/logs?drive_connected=true&email=${encodeURIComponent(result.email || '')}`);
-    } catch (error) {
-        logger.error('admin.Drive callback error:', { error: (error as Error)?.message || 'Unknown error' });
+    } catch (error: any) {
+        logger.error('admin.Drive callback error:', { 
+            error: error?.message || 'Unknown error',
+            stack: error?.stack,
+            code: error?.code
+        });
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-        res.redirect(`${frontendUrl}/dashboard/admin/logs?error=callback_failed`);
+        res.redirect(`${frontendUrl}/dashboard/admin/logs?error=callback_failed&details=${encodeURIComponent(error?.message || 'Unknown error')}`);
     }
 };
 

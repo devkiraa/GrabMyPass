@@ -369,14 +369,33 @@ export default function LogsPage() {
         const params = new URLSearchParams(window.location.search);
         if (params.get('drive_connected') === 'true') {
             const email = params.get('email');
-            alert(`Google Drive connected successfully${email ? ` (${email})` : ''}! Your logs will now be backed up daily.`);
+            toast({
+                title: "Google Drive Connected",
+                description: `Successfully connected${email ? ` as ${email}` : ''}. Your logs will now be backed up automatically.`,
+            });
             window.history.replaceState({}, '', '/dashboard/admin/logs');
         }
         if (params.get('error')) {
-            alert(`Failed to connect Google Drive: ${params.get('error')}`);
+            const errorType = params.get('error');
+            const details = params.get('details');
+            let errorMessage = 'Failed to connect Google Drive';
+            
+            if (errorType === 'oauth_denied') {
+                errorMessage = 'Google authorization was denied or cancelled';
+            } else if (errorType === 'invalid_callback') {
+                errorMessage = 'Invalid callback parameters';
+            } else if (errorType === 'callback_failed') {
+                errorMessage = details || 'OAuth callback failed - check redirect URI configuration';
+            }
+            
+            toast({
+                title: "Connection Failed",
+                description: errorMessage,
+                variant: "destructive"
+            });
             window.history.replaceState({}, '', '/dashboard/admin/logs');
         }
-    }, []);
+    }, [toast]);
 
     useEffect(() => {
         fetchLogs();
