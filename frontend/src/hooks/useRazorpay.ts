@@ -319,6 +319,42 @@ export function useRazorpay() {
         }
     }, [API_URL]);
 
+    // Renew/Reactivate cancelled subscription
+    const renewSubscription = useCallback(async (): Promise<boolean> => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const token = localStorage.getItem('auth_token');
+            if (!token) {
+                setError('Please login');
+                return false;
+            }
+
+            const res = await fetch(`${API_URL}/payment/renew`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                setError(data.message || 'Failed to renew subscription');
+                return false;
+            }
+
+            return true;
+        } catch {
+            setError('Failed to renew subscription');
+            return false;
+        } finally {
+            setLoading(false);
+        }
+    }, [API_URL]);
+
     return {
         loading,
         error,
@@ -329,7 +365,8 @@ export function useRazorpay() {
         createUpgradeOrder,
         verifyPayment,
         openUpgradeCheckout,
-        cancelSubscription
+        cancelSubscription,
+        renewSubscription
     };
 }
 

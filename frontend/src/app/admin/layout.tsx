@@ -8,7 +8,8 @@ import {
     Settings,
     ShieldCheck,
     LogOut,
-    ArrowLeft
+    ArrowLeft,
+    Server
 } from 'lucide-react';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -18,7 +19,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const navItems = [
         { name: 'Overview', href: '/admin', icon: LayoutDashboard },
         { name: 'System Logs', href: '/admin/logs', icon: FileText },
-        // Add more admin items here later e.g. Users, Billings
+        { name: 'Server Status', href: '/admin/status', icon: Server },
     ];
 
     return (

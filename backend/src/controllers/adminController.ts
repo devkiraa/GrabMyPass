@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { User } from '../models/User';
 import { Event } from '../models/Event';
 import { Ticket } from '../models/Ticket';
+import { Payment } from '../models/Payment';
+import { Subscription } from '../models/Subscription';
 import fs from 'fs';
 import path from 'path';
 import {
@@ -18,6 +21,7 @@ import {
     getBackupStatus,
     disconnectDrive
 } from '../services/logService';
+import { logger } from '../lib/logger';
 
 // Get System Overview Stats
 export const getSystemStats = async (req: Request, res: Response) => {
@@ -46,9 +50,163 @@ export const getSystemStats = async (req: Request, res: Response) => {
             },
             recentUsers
         });
-    } catch (error) {
-        console.error('Admin stats error:', error);
+    } catch (error: any) {
+        logger.error('admin.stats_failed', { error: error.message }, error);
         res.status(500).json({ message: 'Failed to fetch system stats' });
+    }
+};
+
+// Server start time for uptime calculation
+const serverStartTime = Date.now();
+
+// Keep-alive status tracking
+interface KeepAliveStatus {
+    enabled: boolean;
+    lastPing: Date | null;
+    pingCount: number;
+    lastPingSuccess: boolean;
+    interval: number;
+}
+
+export const keepAliveStatus: KeepAliveStatus = {
+    enabled: process.env.NODE_ENV === 'production',
+    lastPing: null,
+    pingCount: 0,
+    lastPingSuccess: false,
+    interval: 10 * 60 * 1000 // 10 minutes
+};
+
+// Update keep-alive status (called from server.ts)
+export const updateKeepAliveStatus = (success: boolean) => {
+    keepAliveStatus.lastPing = new Date();
+    keepAliveStatus.pingCount++;
+    keepAliveStatus.lastPingSuccess = success;
+};
+
+// Get comprehensive server status
+export const getServerStatus = async (req: Request, res: Response) => {
+    try {
+        const now = Date.now();
+        const uptimeMs = now - serverStartTime;
+        const uptimeSeconds = Math.floor(uptimeMs / 1000);
+        const uptimeMinutes = Math.floor(uptimeSeconds / 60);
+        const uptimeHours = Math.floor(uptimeMinutes / 60);
+        const uptimeDays = Math.floor(uptimeHours / 24);
+
+        // Memory usage
+        const memoryUsage = process.memoryUsage();
+        const formatBytes = (bytes: number) => {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        };
+
+        // Database status
+        const dbStatus = mongoose.connection?.readyState ?? 0;
+        const dbStatusMap: { [key: number]: string } = {
+            0: 'disconnected',
+            1: 'connected',
+            2: 'connecting',
+            3: 'disconnecting'
+        };
+
+        // Count documents
+        const [userCount, eventCount, ticketCount] = await Promise.all([
+            User.countDocuments(),
+            Event.countDocuments(),
+            Ticket.countDocuments()
+        ]);
+
+        // Redis status check
+        let redisStatus = 'not_configured';
+        try {
+            if (process.env.REDIS_HOST) {
+                // Just check if env vars are set
+                redisStatus = 'configured';
+            }
+        } catch {
+            redisStatus = 'error';
+        }
+
+        res.json({
+            server: {
+                status: 'online',
+                environment: process.env.NODE_ENV || 'development',
+                nodeVersion: process.version,
+                platform: process.platform,
+                arch: process.arch,
+                pid: process.pid
+            },
+            uptime: {
+                raw: uptimeMs,
+                seconds: uptimeSeconds,
+                formatted: `${uptimeDays}d ${uptimeHours % 24}h ${uptimeMinutes % 60}m ${uptimeSeconds % 60}s`,
+                startedAt: new Date(serverStartTime).toISOString()
+            },
+            memory: {
+                heapUsed: formatBytes(memoryUsage.heapUsed),
+                heapTotal: formatBytes(memoryUsage.heapTotal),
+                rss: formatBytes(memoryUsage.rss),
+                external: formatBytes(memoryUsage.external),
+                heapUsedPercent: ((memoryUsage.heapUsed / memoryUsage.heapTotal) * 100).toFixed(1)
+            },
+            database: {
+                status: dbStatusMap[dbStatus] || 'unknown',
+                connected: dbStatus === 1,
+                collections: {
+                    users: userCount,
+                    events: eventCount,
+                    tickets: ticketCount
+                }
+            },
+            redis: {
+                status: redisStatus,
+                host: process.env.REDIS_HOST ? '***configured***' : 'not_set'
+            },
+            keepAlive: {
+                enabled: keepAliveStatus.enabled,
+                lastPing: keepAliveStatus.lastPing,
+                pingCount: keepAliveStatus.pingCount,
+                lastPingSuccess: keepAliveStatus.lastPingSuccess,
+                intervalMinutes: keepAliveStatus.interval / 60000,
+                nextPingIn: keepAliveStatus.lastPing 
+                    ? Math.max(0, keepAliveStatus.interval - (now - new Date(keepAliveStatus.lastPing).getTime()))
+                    : null
+            },
+            services: {
+                razorpay: !!process.env.RAZORPAY_KEY_ID,
+                zeptomail: !!process.env.ZEPTOMAIL_TOKEN,
+                googleWallet: !!process.env.GOOGLE_WALLET_ISSUER_ID,
+                googleAuth: !!process.env.GOOGLE_CLIENT_ID
+            },
+            hosting: {
+                backend: {
+                    platform: process.env.RENDER === 'true' ? 'Render' : (process.env.VERCEL ? 'Vercel' : (process.env.NODE_ENV === 'production' ? 'Cloud' : 'Local')),
+                    url: process.env.BACKEND_URL || 'http://localhost:5000',
+                    region: process.env.RENDER_REGION || process.env.VERCEL_REGION || (process.env.NODE_ENV === 'production' ? 'Auto' : 'Local'),
+                    instance: process.env.RENDER_INSTANCE_ID || process.env.RENDER_SERVICE_ID || 'local',
+                    serviceType: process.env.RENDER_SERVICE_TYPE || (process.env.NODE_ENV === 'production' ? 'Web Service' : 'Development')
+                },
+                frontend: {
+                    platform: 'Vercel',
+                    url: process.env.FRONTEND_URL || 'http://localhost:3000'
+                },
+                database: {
+                    provider: 'MongoDB Atlas',
+                    cluster: process.env.MONGO_URI?.includes('mongodb+srv') ? 'Atlas Cluster' : 'Self-hosted'
+                },
+                cache: {
+                    provider: process.env.REDIS_HOST?.includes('upstash') ? 'Upstash Redis' : (process.env.REDIS_HOST ? 'Redis' : 'None'),
+                    region: process.env.REDIS_HOST?.includes('upstash') ? 'Global Edge' : 'N/A'
+                }
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error: any) {
+        logger.error('admin.server_status_failed', { error: error.message }, error);
+        res.status(500).json({ message: 'Failed to fetch server status' });
     }
 };
 
@@ -101,8 +259,8 @@ export const getAllUsers = async (req: Request, res: Response) => {
             page,
             pages: Math.ceil(total / limit)
         });
-    } catch (error) {
-        console.error('Fetch users error:', error);
+    } catch (error: any) {
+        logger.error('admin.fetch_users_failed', { error: error.message }, error);
         res.status(500).json({ message: 'Failed to fetch users' });
     }
 };
@@ -237,8 +395,8 @@ export const getServerLogs = async (req: Request, res: Response) => {
             backupStatus,
             totalBuffered: getBufferedLogs().length
         });
-    } catch (error) {
-        console.error('Fetch logs error:', error);
+    } catch (error: any) {
+        logger.error('admin.fetch_logs_failed', { error: error.message }, error);
         res.status(500).json({ message: 'Failed to fetch logs' });
     }
 };
@@ -298,7 +456,7 @@ export const streamLogs = async (req: Request, res: Response) => {
             clearInterval(heartbeat);
         });
     } catch (error: any) {
-        console.error('Stream logs auth error:', error.message);
+        logger.error('admin.stream_logs_auth_failed', { error: error.message });
         res.setHeader('Content-Type', 'text/event-stream');
         res.write(`data: ${JSON.stringify({ type: 'error', message: 'Invalid token' })}\n\n`);
         return res.end();
@@ -324,8 +482,8 @@ export const clearServerLogs = async (req: Request, res: Response) => {
         } else {
             res.status(500).json({ message: 'Failed to clear logs' });
         }
-    } catch (error) {
-        console.error('Clear logs error:', error);
+    } catch (error: any) {
+        logger.error('admin.clear_logs_failed', { error: error.message }, error);
         res.status(500).json({ message: 'Failed to clear logs' });
     }
 };
@@ -342,8 +500,8 @@ export const downloadLogs = async (req: Request, res: Response) => {
         }
 
         res.download(logPath, filename);
-    } catch (error) {
-        console.error('Download logs error:', error);
+    } catch (error: any) {
+        logger.error('admin.download_logs_failed', { error: error.message }, error);
         res.status(500).json({ message: 'Failed to download logs' });
     }
 };
@@ -363,7 +521,7 @@ export const getLogsDriveAuthUrl = async (req: Request, res: Response) => {
         const url = getDriveAuthUrl(adminId);
         res.json({ url });
     } catch (error) {
-        console.error('Drive auth URL error:', error);
+        logger.error('admin.Drive auth URL error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to generate auth URL' });
     }
 };
@@ -384,7 +542,7 @@ export const logsDriveCallback = async (req: Request, res: Response) => {
         
         res.redirect(`${frontendUrl}/dashboard/admin/logs?drive_connected=true&email=${encodeURIComponent(result.email || '')}`);
     } catch (error) {
-        console.error('Drive callback error:', error);
+        logger.error('admin.Drive callback error:', { error: (error as Error)?.message || 'Unknown error' });
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         res.redirect(`${frontendUrl}/dashboard/admin/logs?error=callback_failed`);
     }
@@ -410,7 +568,7 @@ export const triggerLogBackup = async (req: Request, res: Response) => {
             res.status(500).json({ message: result.error || 'Backup failed' });
         }
     } catch (error: any) {
-        console.error('Trigger backup error:', error);
+        logger.error('admin.Trigger backup error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: error.message || 'Failed to trigger backup' });
     }
 };
@@ -421,7 +579,7 @@ export const getLogBackupStatus = async (req: Request, res: Response) => {
         const status = await getBackupStatus();
         res.json(status);
     } catch (error) {
-        console.error('Get backup status error:', error);
+        logger.error('admin.Get backup status error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to get backup status' });
     }
 };
@@ -443,7 +601,7 @@ export const disconnectLogsDrive = async (req: Request, res: Response) => {
 
         res.json({ message: 'Google Drive disconnected successfully' });
     } catch (error) {
-        console.error('Disconnect Drive error:', error);
+        logger.error('admin.Disconnect Drive error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to disconnect Drive' });
     }
 };
@@ -468,7 +626,7 @@ export const getUserSessions = async (req: Request, res: Response) => {
 
         res.json({ sessions });
     } catch (error) {
-        console.error('Get user sessions error:', error);
+        logger.error('admin.Get user sessions error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to fetch user sessions' });
     }
 };
@@ -496,7 +654,7 @@ export const getUserLoginHistory = async (req: Request, res: Response) => {
             pages: Math.ceil(total / Number(limit))
         });
     } catch (error) {
-        console.error('Get login history error:', error);
+        logger.error('admin.Get login history error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to fetch login history' });
     }
 };
@@ -528,7 +686,7 @@ export const terminateSession = async (req: Request, res: Response) => {
 
         res.json({ message: 'Session terminated successfully' });
     } catch (error) {
-        console.error('Terminate session error:', error);
+        logger.error('admin.Terminate session error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to terminate session' });
     }
 };
@@ -560,7 +718,7 @@ export const terminateAllUserSessions = async (req: Request, res: Response) => {
             terminatedCount: result.modifiedCount
         });
     } catch (error) {
-        console.error('Terminate all sessions error:', error);
+        logger.error('admin.Terminate all sessions error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to terminate sessions' });
     }
 };
@@ -597,7 +755,7 @@ export const getAllActiveSessions = async (req: Request, res: Response) => {
             pages: Math.ceil(total / Number(limit))
         });
     } catch (error) {
-        console.error('Get all sessions error:', error);
+        logger.error('admin.Get all sessions error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to fetch sessions' });
     }
 };
@@ -631,7 +789,7 @@ export const getSystemSettings = async (req: Request, res: Response) => {
             availableEmailAccounts
         });
     } catch (error) {
-        console.error('Get system settings error:', error);
+        logger.error('admin.Get system settings error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to fetch system settings' });
     }
 };
@@ -674,7 +832,7 @@ export const updateSystemSettings = async (req: Request, res: Response) => {
 
         res.json({ message: 'Settings updated successfully', settings });
     } catch (error) {
-        console.error('Update system settings error:', error);
+        logger.error('admin.Update system settings error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to update system settings' });
     }
 };
@@ -702,7 +860,7 @@ export const testSystemEmail = async (req: Request, res: Response) => {
             res.status(500).json({ message: 'Failed to send test email. Check your system email configuration.' });
         }
     } catch (error: any) {
-        console.error('Test system email error:', error);
+        logger.error('admin.Test system email error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: error.message || 'Failed to send test email' });
     }
 };
@@ -743,7 +901,7 @@ export const getSystemEmailAuthUrl = async (req: Request, res: Response) => {
 
         res.json({ url });
     } catch (error) {
-        console.error('System email auth URL error:', error);
+        logger.error('admin.System email auth URL error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to generate auth URL' });
     }
 };
@@ -824,7 +982,7 @@ export const systemEmailCallback = async (req: Request, res: Response) => {
 
         res.redirect(`${frontendUrl}/dashboard/admin/email?success=true&email=${email}`);
     } catch (error) {
-        console.error('System email callback error:', error);
+        logger.error('admin.System email callback error:', { error: (error as Error)?.message || 'Unknown error' });
         const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         res.redirect(`${frontendUrl}/dashboard/admin/email?error=callback_failed`);
     }
@@ -942,7 +1100,7 @@ export const getEmailStats = async (req: Request, res: Response) => {
             }
         });
     } catch (error) {
-        console.error('Get email stats error:', error);
+        logger.error('admin.Get email stats error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ message: 'Failed to fetch email statistics' });
     }
 };
@@ -971,7 +1129,7 @@ export const getZeptoMailCredits = async (req: Request, res: Response) => {
 
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('ZeptoMail API error:', errorText);
+            logger.error('admin.zeptomail_api_error', { status: response.status, error: errorText });
             return res.status(response.status).json({ 
                 configured: true,
                 message: 'Failed to fetch ZeptoMail credits',
@@ -1005,7 +1163,7 @@ export const getZeptoMailCredits = async (req: Request, res: Response) => {
             // Credits are typically shown in the ZeptoMail dashboard
         });
     } catch (error: any) {
-        console.error('Get ZeptoMail credits error:', error);
+        logger.error('admin.Get ZeptoMail credits error:', { error: (error as Error)?.message || 'Unknown error' });
         res.status(500).json({ 
             configured: !!process.env.ZEPTOMAIL_TOKEN,
             message: 'Failed to fetch ZeptoMail information',
@@ -1122,7 +1280,7 @@ export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
-        console.error('ZeptoMail test email error:', error);
+        logger.error('admin.ZeptoMail test email error:', { error: (error as Error)?.message || 'Unknown error' });
         
         // Log failed email
         try {
@@ -1136,8 +1294,8 @@ export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
                 provider: 'zeptomail',
                 errorMessage: error.message
             });
-        } catch (logError) {
-            console.error('Failed to log error:', logError);
+        } catch (logError: any) {
+            logger.error('admin.email_log_failed', { error: logError.message });
         }
 
         res.status(500).json({ 
@@ -1147,3 +1305,454 @@ export const sendZeptoMailTestEmail = async (req: Request, res: Response) => {
         });
     }
 };
+
+// ==================== REVENUE MANAGEMENT ====================
+
+/**
+ * Get revenue overview and statistics
+ */
+export const getRevenueStats = async (req: Request, res: Response) => {
+    try {
+        const { startDate, endDate } = req.query;
+        
+        // Build date filter
+        const dateFilter: any = {};
+        if (startDate) dateFilter.$gte = new Date(startDate as string);
+        if (endDate) dateFilter.$lte = new Date(endDate as string);
+        
+        const matchStage: any = { status: 'paid' };
+        if (Object.keys(dateFilter).length > 0) {
+            matchStage.paidAt = dateFilter;
+        }
+
+        // Total Revenue
+        const totalRevenueResult = await Payment.aggregate([
+            { $match: matchStage },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        const totalRevenue = totalRevenueResult[0]?.total || 0;
+
+        // Revenue by Plan
+        const revenueByPlan = await Payment.aggregate([
+            { $match: matchStage },
+            { $group: { _id: '$plan', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+            { $sort: { total: -1 } }
+        ]);
+
+        // Revenue by Payment Method
+        const revenueByMethod = await Payment.aggregate([
+            { $match: matchStage },
+            { $group: { _id: '$method', total: { $sum: '$amount' }, count: { $sum: 1 } } },
+            { $sort: { total: -1 } }
+        ]);
+
+        // Monthly Revenue (last 12 months)
+        const twelveMonthsAgo = new Date();
+        twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12);
+        
+        const monthlyRevenue = await Payment.aggregate([
+            { $match: { status: 'paid', paidAt: { $gte: twelveMonthsAgo } } },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$paidAt' },
+                        month: { $month: '$paidAt' }
+                    },
+                    total: { $sum: '$amount' },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { '_id.year': 1, '_id.month': 1 } }
+        ]);
+
+        // Total Refunds
+        const refundsResult = await Payment.aggregate([
+            { $match: { status: 'refunded' } },
+            { $group: { _id: null, total: { $sum: '$refundAmount' }, count: { $sum: 1 } } }
+        ]);
+        const totalRefunds = refundsResult[0]?.total || 0;
+        const refundCount = refundsResult[0]?.count || 0;
+
+        // Pending Refund Requests (cancelled subscriptions that might need refunds)
+        const pendingRefunds = await Subscription.countDocuments({
+            status: 'cancelled',
+            cancelledAt: { $exists: true }
+        });
+
+        // Active Subscriptions by Plan
+        const activeSubscriptions = await Subscription.aggregate([
+            { $match: { status: 'active', plan: { $ne: 'free' } } },
+            { $group: { _id: '$plan', count: { $sum: 1 } } }
+        ]);
+
+        // Total paid users
+        const totalPaidUsers = await Subscription.countDocuments({
+            status: 'active',
+            plan: { $ne: 'free' }
+        });
+
+        // Today's revenue
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayRevenueResult = await Payment.aggregate([
+            { $match: { status: 'paid', paidAt: { $gte: todayStart } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        const todayRevenue = todayRevenueResult[0]?.total || 0;
+
+        // This month's revenue
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        const monthRevenueResult = await Payment.aggregate([
+            { $match: { status: 'paid', paidAt: { $gte: monthStart } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]);
+        const monthRevenue = monthRevenueResult[0]?.total || 0;
+
+        res.json({
+            overview: {
+                totalRevenue: totalRevenue / 100, // Convert from paise to rupees
+                todayRevenue: todayRevenue / 100,
+                monthRevenue: monthRevenue / 100,
+                totalRefunds: totalRefunds / 100,
+                refundCount,
+                pendingRefunds,
+                totalPaidUsers
+            },
+            revenueByPlan: revenueByPlan.map(p => ({
+                plan: p._id || 'unknown',
+                total: p.total / 100,
+                count: p.count
+            })),
+            revenueByMethod: revenueByMethod.map(m => ({
+                method: m._id || 'unknown',
+                total: m.total / 100,
+                count: m.count
+            })),
+            monthlyRevenue: monthlyRevenue.map(m => ({
+                year: m._id.year,
+                month: m._id.month,
+                total: m.total / 100,
+                count: m.count
+            })),
+            activeSubscriptions: activeSubscriptions.map(s => ({
+                plan: s._id,
+                count: s.count
+            }))
+        });
+
+    } catch (error: any) {
+        logger.error('admin.Revenue stats error:', { error: (error as Error)?.message || 'Unknown error' });
+        res.status(500).json({ message: 'Failed to fetch revenue stats', error: error.message });
+    }
+};
+
+/**
+ * Get all payments with pagination and filters
+ */
+export const getAllPayments = async (req: Request, res: Response) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const status = req.query.status as string;
+        const plan = req.query.plan as string;
+        const method = req.query.method as string;
+        const search = req.query.search as string;
+        const sortBy = req.query.sortBy as string || 'createdAt';
+        const order = req.query.order === 'asc' ? 1 : -1;
+
+        const skip = (page - 1) * limit;
+        const query: any = {};
+
+        if (status) query.status = status;
+        if (plan) query.plan = plan;
+        if (method) query.method = method;
+
+        // Search by payment ID or order ID
+        if (search) {
+            query.$or = [
+                { razorpayPaymentId: { $regex: search, $options: 'i' } },
+                { razorpayOrderId: { $regex: search, $options: 'i' } },
+                { receipt: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        const total = await Payment.countDocuments(query);
+        const payments = await Payment.find(query)
+            .populate('userId', 'name email avatar')
+            .sort({ [sortBy]: order })
+            .skip(skip)
+            .limit(limit);
+
+        res.json({
+            payments: payments.map(p => ({
+                _id: p._id,
+                razorpayOrderId: p.razorpayOrderId,
+                razorpayPaymentId: p.razorpayPaymentId,
+                user: p.userId,
+                amount: p.amount / 100,
+                currency: p.currency,
+                status: p.status,
+                plan: p.plan,
+                method: p.method,
+                bank: p.bank,
+                wallet: p.wallet,
+                vpa: p.vpa,
+                refundAmount: p.refundAmount ? p.refundAmount / 100 : null,
+                refundStatus: p.refundStatus,
+                refundedAt: p.refundedAt,
+                paidAt: p.paidAt,
+                createdAt: p.createdAt
+            })),
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error: any) {
+        logger.error('admin.Get all payments error:', { error: (error as Error)?.message || 'Unknown error' });
+        res.status(500).json({ message: 'Failed to fetch payments', error: error.message });
+    }
+};
+
+/**
+ * Get all subscriptions with user details
+ */
+export const getAllSubscriptions = async (req: Request, res: Response) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const status = req.query.status as string;
+        const plan = req.query.plan as string;
+        const sortBy = req.query.sortBy as string || 'createdAt';
+        const order = req.query.order === 'asc' ? 1 : -1;
+
+        const skip = (page - 1) * limit;
+        const query: any = {};
+
+        if (status) query.status = status;
+        if (plan) query.plan = plan;
+
+        const total = await Subscription.countDocuments(query);
+        const subscriptions = await Subscription.find(query)
+            .populate('userId', 'name email avatar createdAt')
+            .sort({ [sortBy]: order })
+            .skip(skip)
+            .limit(limit);
+
+        res.json({
+            subscriptions,
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error: any) {
+        logger.error('admin.Get all subscriptions error:', { error: (error as Error)?.message || 'Unknown error' });
+        res.status(500).json({ message: 'Failed to fetch subscriptions', error: error.message });
+    }
+};
+
+/**
+ * Get cancelled subscriptions that may need refunds
+ */
+export const getCancelledSubscriptions = async (req: Request, res: Response) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+
+        const skip = (page - 1) * limit;
+
+        const total = await Subscription.countDocuments({ status: 'cancelled' });
+        const subscriptions = await Subscription.find({ status: 'cancelled' })
+            .populate('userId', 'name email avatar')
+            .sort({ cancelledAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        // Get related payments for refund calculation
+        const subscriptionsWithPayments = await Promise.all(
+            subscriptions.map(async (sub) => {
+                const lastPayment = await Payment.findOne({
+                    userId: sub.userId,
+                    status: 'paid',
+                    plan: sub.plan
+                }).sort({ paidAt: -1 });
+
+                // Calculate refund eligibility
+                let refundEligible = false;
+                let refundAmount = 0;
+                let daysRemaining = 0;
+
+                if (sub.currentPeriodEnd && lastPayment) {
+                    const now = new Date();
+                    const periodEnd = new Date(sub.currentPeriodEnd);
+                    const periodStart = new Date(sub.currentPeriodStart || lastPayment.paidAt || now);
+                    
+                    if (periodEnd > now) {
+                        const totalDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+                        daysRemaining = Math.ceil((periodEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                        
+                        // Prorated refund
+                        if (totalDays > 0 && daysRemaining > 0) {
+                            refundAmount = (lastPayment.amount / 100) * (daysRemaining / totalDays);
+                            refundEligible = daysRemaining >= 7; // Only eligible if 7+ days remaining
+                        }
+                    }
+                }
+
+                return {
+                    ...sub.toObject(),
+                    lastPayment: lastPayment ? {
+                        amount: lastPayment.amount / 100,
+                        paidAt: lastPayment.paidAt,
+                        razorpayPaymentId: lastPayment.razorpayPaymentId
+                    } : null,
+                    refundInfo: {
+                        eligible: refundEligible,
+                        amount: Math.round(refundAmount * 100) / 100,
+                        daysRemaining
+                    }
+                };
+            })
+        );
+
+        res.json({
+            subscriptions: subscriptionsWithPayments,
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        });
+
+    } catch (error: any) {
+        logger.error('admin.Get cancelled subscriptions error:', { error: (error as Error)?.message || 'Unknown error' });
+        res.status(500).json({ message: 'Failed to fetch cancelled subscriptions', error: error.message });
+    }
+};
+
+/**
+ * Process refund for a payment
+ */
+export const processRefund = async (req: Request, res: Response) => {
+    try {
+        const { paymentId } = req.params;
+        const { amount, reason } = req.body;
+
+        const payment = await Payment.findById(paymentId);
+        if (!payment) {
+            return res.status(404).json({ message: 'Payment not found' });
+        }
+
+        if (payment.status === 'refunded') {
+            return res.status(400).json({ message: 'Payment already refunded' });
+        }
+
+        if (payment.status !== 'paid') {
+            return res.status(400).json({ message: 'Can only refund paid payments' });
+        }
+
+        const refundAmount = amount ? amount * 100 : payment.amount; // Convert to paise
+
+        if (refundAmount > payment.amount) {
+            return res.status(400).json({ message: 'Refund amount cannot exceed payment amount' });
+        }
+
+        // Note: In production, you would call Razorpay API to process refund
+        // const razorpay = new Razorpay({ key_id, key_secret });
+        // const refund = await razorpay.payments.refund(payment.razorpayPaymentId, { amount: refundAmount });
+
+        // For now, just update the payment record
+        payment.status = 'refunded';
+        payment.refundAmount = refundAmount;
+        payment.refundStatus = 'processed';
+        payment.refundedAt = new Date();
+        payment.notes = {
+            ...payment.notes,
+            refundReason: reason,
+            refundedBy: (req as any).user.id,
+            refundedByAdmin: true
+        };
+        await payment.save();
+
+        // Optionally downgrade user's subscription
+        const subscription = await Subscription.findOne({ userId: payment.userId });
+        if (subscription && subscription.plan !== 'free') {
+            subscription.plan = 'free';
+            subscription.status = 'active';
+            subscription.limits = {
+                maxAttendeesPerEvent: 50,
+                maxEventsPerMonth: 2,
+                maxTeamMembers: 1,
+                customBranding: false,
+                priorityEmail: false,
+                advancedAnalytics: false,
+                apiAccess: false,
+                customEmailTemplates: false,
+                exportData: false,
+                customDomain: false,
+                dedicatedSupport: false,
+                slaGuarantee: false,
+                whiteLabel: false
+            };
+            await subscription.save();
+        }
+
+        res.json({
+            success: true,
+            message: 'Refund processed successfully',
+            refund: {
+                paymentId: payment._id,
+                originalAmount: payment.amount / 100,
+                refundAmount: refundAmount / 100,
+                status: 'processed'
+            }
+        });
+
+    } catch (error: any) {
+        logger.error('admin.Process refund error:', { error: (error as Error)?.message || 'Unknown error' });
+        res.status(500).json({ message: 'Failed to process refund', error: error.message });
+    }
+};
+
+/**
+ * Get payment details by ID
+ */
+export const getPaymentDetails = async (req: Request, res: Response) => {
+    try {
+        const { paymentId } = req.params;
+
+        const payment = await Payment.findById(paymentId)
+            .populate('userId', 'name email avatar');
+
+        if (!payment) {
+            return res.status(404).json({ message: 'Payment not found' });
+        }
+
+        // Get user's subscription
+        const subscription = await Subscription.findOne({ userId: payment.userId });
+
+        res.json({
+            payment: {
+                ...payment.toObject(),
+                amount: payment.amount / 100,
+                refundAmount: payment.refundAmount ? payment.refundAmount / 100 : null
+            },
+            subscription
+        });
+
+    } catch (error: any) {
+        logger.error('admin.Get payment details error:', { error: (error as Error)?.message || 'Unknown error' });
+        res.status(500).json({ message: 'Failed to fetch payment details', error: error.message });
+    }
+};
+

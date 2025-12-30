@@ -2,11 +2,13 @@
   "name": "maketicket-backend",
   "version": "1.0.0",
   "description": "Backend for MakeTicket Event Ticketing System",
-  "main": "src/server.ts",
+  "main": "dist/server.js",
   "scripts": {
-    "start": "node dist/server.js",
+    "start": "node -r dotenv/config dist/server.js",
     "dev": "nodemon -r dotenv/config src/server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist"
   },
   "dependencies": {
     "@types/figlet": "^1.7.0",

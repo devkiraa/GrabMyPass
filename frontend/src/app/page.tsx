@@ -526,36 +526,71 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
               {/* Free Plan */}
-              <div className="relative rounded-2xl border border-slate-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
+              <div className="relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-lg transition-shadow">
                 <div className="flex items-center gap-2 mb-2">
                   <Zap className="w-5 h-5 text-slate-600" />
-                  <h3 className="text-xl font-semibold text-slate-900">Free</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Free</h3>
                 </div>
                 <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-4xl font-bold text-slate-900">₹0</span>
+                  <span className="text-3xl font-bold text-slate-900">₹0</span>
                   <span className="text-slate-500">/forever</span>
                 </div>
-                <p className="text-slate-600 mb-6">Perfect for small events and getting started.</p>
+                <p className="text-sm text-slate-600 mb-4">Perfect for trying out MakeTicket.</p>
                 
                 <Link href="/register">
-                  <Button className="w-full rounded-full mb-6 bg-slate-900 hover:bg-slate-800">
+                  <Button className="w-full rounded-full mb-4 bg-slate-900 hover:bg-slate-800 text-sm">
                     Get Started Free
                   </Button>
                 </Link>
                 
-                <ul className="space-y-3">
+                <ul className="space-y-2">
                   {[
-                    'Up to 100 attendees per event',
-                    'Unlimited events',
+                    '50 attendees per event',
+                    '2 events per month',
+                    '1 team member',
                     'QR code tickets',
                     'Email confirmations',
-                    'Basic analytics',
-                    'Community support'
+                    'Basic analytics'
                   ].map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
+                      <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Starter Plan */}
+              <div className="relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-lg transition-shadow">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="w-5 h-5 text-blue-500" />
+                  <h3 className="text-lg font-semibold text-slate-900">Starter</h3>
+                </div>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-3xl font-bold text-slate-900">₹49</span>
+                  <span className="text-slate-500">/month</span>
+                </div>
+                <p className="text-sm text-slate-600 mb-4">Great for small events and workshops.</p>
+                
+                <Link href="/register">
+                  <Button className="w-full rounded-full mb-4 bg-blue-600 hover:bg-blue-700 text-sm">
+                    Start 7-day Trial
+                  </Button>
+                </Link>
+                
+                <ul className="space-y-2">
+                  {[
+                    '200 attendees per event',
+                    '5 events per month',
+                    '2 team members',
+                    'Custom branding',
+                    'Priority email delivery',
+                    'Standard support'
+                  ].map((feature, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
+                      <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
                       {feature}
                     </li>
                   ))}
@@ -563,39 +598,37 @@ export default function LandingPage() {
               </div>
 
               {/* Pro Plan */}
-              <div className="relative rounded-2xl border-2 border-indigo-600 bg-white p-8 shadow-xl ring-1 ring-indigo-600/10">
+              <div className="relative rounded-2xl border-2 border-indigo-600 bg-white p-6 shadow-xl ring-1 ring-indigo-600/10">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-xs font-semibold px-3 py-1 rounded-full">
                   Most Popular
                 </div>
                 <div className="flex items-center gap-2 mb-2">
                   <Crown className="w-5 h-5 text-yellow-500" />
-                  <h3 className="text-xl font-semibold text-slate-900">Pro</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Pro</h3>
                 </div>
                 <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-4xl font-bold text-slate-900">₹999</span>
+                  <span className="text-3xl font-bold text-slate-900">₹499</span>
                   <span className="text-slate-500">/month</span>
                 </div>
-                <p className="text-slate-600 mb-6">For growing organizers who need more power.</p>
+                <p className="text-sm text-slate-600 mb-4">For growing organizers and businesses.</p>
                 
                 <Link href="/register">
-                  <Button className="w-full rounded-full mb-6 bg-indigo-600 hover:bg-indigo-700">
-                    Start Free Trial
+                  <Button className="w-full rounded-full mb-4 bg-indigo-600 hover:bg-indigo-700 text-sm">
+                    Start 7-day Trial
                   </Button>
                 </Link>
                 
-                <ul className="space-y-3">
+                <ul className="space-y-2">
                   {[
-                    'Up to 1,000 attendees per event',
-                    'Custom branding',
-                    'Priority email delivery',
+                    '1,000 attendees per event',
+                    'Unlimited events',
+                    '10 team members',
                     'Advanced analytics',
-                    'Team members (up to 10)',
-                    'Email support',
                     'Custom email templates',
-                    'Export attendee data'
+                    'Priority support'
                   ].map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
+                      <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
                       {feature}
                     </li>
                   ))}
@@ -603,35 +636,35 @@ export default function LandingPage() {
               </div>
 
               {/* Enterprise Plan */}
-              <div className="relative rounded-2xl border border-slate-200 bg-white p-8 shadow-sm hover:shadow-lg transition-shadow">
+              <div className="relative rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-lg transition-shadow">
                 <div className="flex items-center gap-2 mb-2">
                   <Building2 className="w-5 h-5 text-purple-600" />
-                  <h3 className="text-xl font-semibold text-slate-900">Enterprise</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Enterprise</h3>
                 </div>
                 <div className="flex items-baseline gap-1 mb-2">
-                  <span className="text-4xl font-bold text-slate-900">Custom</span>
+                  <span className="text-3xl font-bold text-slate-900">Custom</span>
                 </div>
-                <p className="text-slate-600 mb-6">For large organizations with complex needs.</p>
+                <p className="text-sm text-slate-600 mb-4">For large organizations with custom needs.</p>
                 
                 <Link href="/contact?subject=Enterprise%20Plan">
-                  <Button variant="outline" className="w-full rounded-full mb-6 border-slate-300 hover:bg-slate-50">
+                  <Button variant="outline" className="w-full rounded-full mb-4 border-slate-300 hover:bg-slate-50 text-sm">
                     Contact Sales
                   </Button>
                 </Link>
                 
-                <ul className="space-y-3">
+                <ul className="space-y-2">
                   {[
                     'Unlimited attendees',
-                    'White-label solution',
+                    'Unlimited events',
+                    'Unlimited team members',
                     'API access',
-                    'Dedicated support',
-                    'Custom integrations',
+                    'White-label solution',
                     'SLA guarantee',
-                    'On-premise option',
-                    'Training & onboarding'
+                    'Dedicated support',
+                    'Custom integrations'
                   ].map((feature, i) => (
-                    <li key={i} className="flex items-start gap-3 text-sm text-slate-600">
-                      <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <li key={i} className="flex items-start gap-2 text-xs text-slate-600">
+                      <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
                       {feature}
                     </li>
                   ))}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Users, Calendar, Ticket, Activity, ShieldAlert, ArrowLeft } from 'lucide-react';
+import { Users, Calendar, Ticket, Activity, ShieldAlert, ArrowLeft, IndianRupee, ChevronRight, Server } from 'lucide-react';
 
 interface AdminStats {
     stats: {
@@ -147,6 +147,89 @@ export default function AdminDashboard() {
                     <CardContent>
                         <div className="text-2xl font-bold text-slate-900">{data?.stats.totalTickets}</div>
                         <p className="text-xs text-slate-500 mt-1">Successful registrations</p>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Card 
+                    className="shadow-sm border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => router.push('/admin/status')}
+                >
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-blue-100 rounded-xl">
+                                    <Server className="h-6 w-6 text-blue-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-slate-900">Server Status</h3>
+                                    <p className="text-sm text-slate-500">API health & keep-alive</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-slate-400" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card 
+                    className="shadow-sm border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => router.push('/admin/revenue')}
+                >
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-green-100 rounded-xl">
+                                    <IndianRupee className="h-6 w-6 text-green-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-slate-900">Revenue Management</h3>
+                                    <p className="text-sm text-slate-500">View payments, subscriptions & refunds</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-slate-400" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card 
+                    className="shadow-sm border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => router.push('/admin/logs')}
+                >
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-indigo-100 rounded-xl">
+                                    <Activity className="h-6 w-6 text-indigo-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-slate-900">System Logs</h3>
+                                    <p className="text-sm text-slate-500">View server logs & activity</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-slate-400" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card 
+                    className="shadow-sm border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => router.push('/admin/users')}
+                >
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-purple-100 rounded-xl">
+                                    <Users className="h-6 w-6 text-purple-600" />
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-slate-900">User Management</h3>
+                                    <p className="text-sm text-slate-500">Manage users & permissions</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-slate-400" />
+                        </div>
                     </CardContent>
                 </Card>
             </div>

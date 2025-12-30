@@ -10,6 +10,7 @@ import { TicketTemplate } from '../models/TicketTemplate';
 import { EmailLog } from '../models/EmailLog';
 import { Event } from '../models/Event';
 import { decrypt } from '../utils/encryption';
+import { logger } from '../lib/logger';
 
 // Generate default email HTML if no template selected
 const generateDefaultEmailHtml = (data: {
@@ -103,7 +104,7 @@ const generateTicketCode = (hash: string): string => {
 };
 
 const emailWorker = new Worker('email-queue', async (job) => {
-    console.log(`Processing email job ${job.id}: ${job.name}`);
+    logger.info('email.job_processing', { job_id: job.id, job_name: job.name });
 
     try {
         // Ensure DB connection
@@ -124,7 +125,7 @@ const emailWorker = new Worker('email-queue', async (job) => {
 
             // Check if confirmation emails are enabled
             if (event?.sendConfirmationEmail === false) {
-                console.log(`Confirmation emails disabled for event ${event.title}`);
+                logger.debug('email.confirmation_disabled', { event_id: event._id, event_title: event.title });
                 return;
             }
 
@@ -233,9 +234,9 @@ const emailWorker = new Worker('email-queue', async (job) => {
                     await emailAccount.save();
 
                     usedProvider = 'zeptomail';
-                    console.log(`Email sent via ZeptoMail (user) to ${recipientEmail}`);
-                } catch (zeptoError) {
-                    console.error('ZeptoMail (user) send failed:', zeptoError);
+                    logger.info('email.sent', { provider: 'zeptomail_user', recipient: recipientEmail, event_id: eventDetails._id });
+                } catch (zeptoError: any) {
+                    logger.error('email.send_failed', { provider: 'zeptomail_user', recipient: recipientEmail, error: zeptoError.message }, zeptoError);
                     // Will try Gmail or SMTP fallback
                 }
             }
@@ -310,9 +311,9 @@ const emailWorker = new Worker('email-queue', async (job) => {
                     await emailAccount.save();
 
                     usedProvider = 'gmail';
-                    console.log(`Email sent via Gmail to ${recipientEmail}`);
-                } catch (gmailError) {
-                    console.error('Gmail send failed:', gmailError);
+                    logger.info('email.sent', { provider: 'gmail', recipient: recipientEmail, event_id: eventDetails._id });
+                } catch (gmailError: any) {
+                    logger.error('email.send_failed', { provider: 'gmail', recipient: recipientEmail, error: gmailError.message }, gmailError);
                     // Will try SMTP fallback
                 }
             }
@@ -343,9 +344,9 @@ const emailWorker = new Worker('email-queue', async (job) => {
                     fromEmail = decryptedUser;
                     emailSent = true;
                     usedProvider = 'smtp';
-                    console.log(`Email sent via SMTP to ${recipientEmail}`);
-                } catch (smtpError) {
-                    console.error('SMTP send failed:', smtpError);
+                    logger.info('email.sent', { provider: 'smtp', recipient: recipientEmail, event_id: eventDetails._id });
+                } catch (smtpError: any) {
+                    logger.error('email.send_failed', { provider: 'smtp', recipient: recipientEmail, error: smtpError.message }, smtpError);
                 }
             }
 
@@ -370,12 +371,17 @@ const emailWorker = new Worker('email-queue', async (job) => {
             });
 
             if (!emailSent) {
-                console.warn(`⚠️ Ticket email NOT sent - Host ${eventHostId} has no email account connected. Guest: ${recipientEmail}`);
+                logger.warn('email.not_sent', { 
+                    reason: 'no_email_account', 
+                    host_id: eventHostId, 
+                    recipient: recipientEmail,
+                    event_id: eventDetails._id 
+                });
             }
         }
 
     } catch (error: any) {
-        console.error(`Failed to process email job ${job.id}:`, error);
+        logger.error('email.job_failed', { job_id: job.id, error: error.message }, error);
 
         // Log failed email
         try {
@@ -393,8 +399,8 @@ const emailWorker = new Worker('email-queue', async (job) => {
                     eventTitle: job.data.eventDetails?.title
                 });
             }
-        } catch (logError) {
-            console.error('Failed to log email error:', logError);
+        } catch (logError: any) {
+            logger.error('email.log_failed', { error: logError.message }, logError);
         }
 
         throw error;
@@ -410,11 +416,11 @@ const emailWorker = new Worker('email-queue', async (job) => {
 });
 
 emailWorker.on('completed', (job) => {
-    console.log(`Email job ${job.id} completed successfully`);
+    logger.debug('email.job_completed', { job_id: job.id });
 });
 
 emailWorker.on('failed', (job, err) => {
-    console.error(`Email job ${job?.id} failed:`, err.message);
+    logger.error('email.job_failed', { job_id: job?.id, error: err.message });
 });
 
 export default emailWorker;

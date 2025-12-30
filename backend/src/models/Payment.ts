@@ -27,7 +27,7 @@ const PaymentSchema = new mongoose.Schema({
     },
     plan: {
         type: String,
-        enum: ['free', 'pro', 'enterprise']
+        enum: ['free', 'starter', 'pro', 'enterprise']
     },
     
     // Metadata

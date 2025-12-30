@@ -3,7 +3,6 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import morgan from 'morgan';
 import figlet from 'figlet';
 import { authRouter } from './routes/auth';
 import { apiRouter } from './routes/api';
@@ -11,7 +10,11 @@ import { adminRouter } from './routes/admin';
 import { addLogEntry, scheduleDailyBackup } from './services/logService';
 
 import axios from 'axios';
-import chalk from 'chalk';
+
+// Import production-grade logging infrastructure
+import { logger } from './lib/logger';
+import { requestContextMiddleware } from './middleware/requestContext';
+import { httpLoggingMiddleware } from './middleware/httpLogger';
 
 dotenv.config();
 
@@ -28,79 +31,43 @@ if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
 }
 
-// Middleware
-// Create a rotating write stream
+// Create a rotating write stream for structured logs
 const accessLogStream = rfs.createStream('access.log', {
     interval: '1d', // rotate daily
     path: logsDir
 });
 
-// Plain tokens for file
-morgan.token('time', () => new Date().toLocaleString());
+// ============================================================================
+// Middleware Stack (order matters!)
+// ============================================================================
 
-// Colored tokens for console
-morgan.token('c-time', () => chalk.gray(`[${new Date().toLocaleString()}]`));
-morgan.token('c-method', (req) => {
-    const method = req.method;
-    const colors: { [key: string]: any } = {
-        'GET': chalk.cyan,
-        'POST': chalk.blueBright,
-        'PUT': chalk.magenta,
-        'PATCH': chalk.yellow,
-        'DELETE': chalk.red,
-        'OPTIONS': chalk.gray
-    };
-    const coloredMethod = (colors[method!] || chalk.white).bold(method);
-    return coloredMethod.padEnd(16); // Padding for alignment (including ANSI codes length)
+// 1. Request context middleware MUST be first - generates trace IDs
+app.use(requestContextMiddleware);
+
+// 2. HTTP logging middleware (replaces morgan)
+app.use(httpLoggingMiddleware);
+
+// 3. Also write to rotating log file for backup/compliance
+app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        const logLine = JSON.stringify({
+            timestamp: new Date().toISOString(),
+            method: req.method,
+            url: req.originalUrl || req.url,
+            status: res.statusCode,
+            duration_ms: duration,
+            request_id: req.requestId,
+            trace_id: req.traceId,
+            ip: req.ip,
+            user_agent: req.get('user-agent'),
+        });
+        accessLogStream.write(logLine + '\n');
+        addLogEntry(logLine);
+    });
+    next();
 });
-
-// Create a version of the color logic that handles the padding correctly since ANSI codes mess up .padEnd()
-const getColoredMethod = (method: string) => {
-    const colors: { [key: string]: any } = {
-        'GET': chalk.cyan,
-        'POST': chalk.blueBright,
-        'PUT': chalk.magenta,
-        'PATCH': chalk.yellow,
-        'DELETE': chalk.red,
-        'OPTIONS': chalk.gray
-    };
-    const methodStr = method.padEnd(7);
-    return (colors[method] || chalk.white).bold(methodStr);
-};
-
-morgan.token('c-method-aligned', (req) => getColoredMethod(req.method!));
-
-morgan.token('c-status', (req, res) => {
-    const status = res.statusCode;
-    const color = status >= 500 ? chalk.red : status >= 400 ? chalk.yellow : status >= 300 ? chalk.cyan : status >= 200 ? chalk.green : chalk.white;
-    return color.bold(status.toString());
-});
-
-morgan.token('c-time-ms', (req, res, digits) => {
-    const time = (morgan as any)['response-time'](req, res, digits);
-    const timeStr = `${time} ms`.padStart(10);
-    return chalk.italic.gray(timeStr);
-});
-
-morgan.token('c-url', (req: any) => chalk.gray(req.originalUrl || req.url));
-
-// Log to Console (Colored & Aligned)
-app.use(morgan(':c-time :c-method-aligned :c-status :c-time-ms :c-url', {
-    skip: (req) => req.method === 'OPTIONS' // Skip noisy preflight requests
-}));
-
-// Log to File (Plain) and add to real-time buffer
-const logFormat = '[:time] :method :status :response-time ms :url';
-app.use(morgan(logFormat, { 
-    stream: {
-        write: (message: string) => {
-            // Write to file
-            accessLogStream.write(message);
-            // Add to real-time buffer (trim newline)
-            addLogEntry(message.trim());
-        }
-    }
-}));
 
 // Trust proxy - needed to get real client IP behind Render/Vercel/nginx
 app.set('trust proxy', true);
@@ -115,8 +82,8 @@ app.use(cookieParser());
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/maketicket')
-    .then(() => console.log('🍃 MongoDB connected to MakeTicket DB'))
-    .catch((err) => console.error('❌ MongoDB Connection Error:', err));
+    .then(() => logger.info('database.connected', { database: 'maketicket', provider: 'MongoDB Atlas' }))
+    .catch((err) => logger.error('database.connection_failed', { error: err.message }, err));
 
 // Routes
 app.get('/', (req, res) => {
@@ -462,6 +429,55 @@ app.use('/api/google-sheets', googleSheetsRouter);
 import paymentRouter from './routes/payment';
 app.use('/api/payment', paymentRouter);
 
+// Import keep-alive status tracker
+import { updateKeepAliveStatus } from './controllers/adminController';
+
+// Health check endpoint for keep-alive
+app.get('/health', (req, res) => {
+    res.status(200).json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
+
+// Keep-alive self-ping function (prevents Render free tier from spinning down)
+const startKeepAlive = () => {
+    const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
+    const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
+    
+    // Only run in production to save resources locally
+    if (process.env.NODE_ENV !== 'production') {
+        logger.debug('keepalive.disabled', { reason: 'development_mode' });
+        return;
+    }
+    
+    const ping = async () => {
+        try {
+            const response = await axios.get(`${BACKEND_URL}/health`);
+            updateKeepAliveStatus(true);
+            logger.debug('keepalive.ping_success', { 
+                status: response.data.status, 
+                uptime_seconds: Math.floor(response.data.uptime) 
+            });
+        } catch (error: any) {
+            updateKeepAliveStatus(false);
+            logger.error('keepalive.ping_failed', { error: error.message }, error);
+        }
+    };
+    
+    // Initial ping after 1 minute
+    setTimeout(ping, 60 * 1000);
+    
+    // Then ping every 10 minutes
+    setInterval(ping, PING_INTERVAL);
+    
+    logger.info('keepalive.started', { 
+        target_url: `${BACKEND_URL}/health`, 
+        interval_minutes: PING_INTERVAL / 60000 
+    });
+};
+
 // Start Server
 app.listen(PORT, async () => {
     let publicIp = 'unknown';
@@ -480,12 +496,14 @@ app.listen(PORT, async () => {
         whitespaceBreak: true
     }, (err, data) => {
         if (err) {
-            console.log('Something went wrong...');
-            console.dir(err);
+            logger.error('server.banner_failed', { error: err.message });
             return;
         }
-        console.log(data);
-        console.log(`
+        
+        // Only show ASCII banner in development
+        if (process.env.NODE_ENV !== 'production') {
+            console.log(data);
+            console.log(`
 Welcome to MakeTicket-Server
 
 Date:         ${new Date().toLocaleDateString()}
@@ -496,9 +514,23 @@ HTTP server running on port ${PORT}
 Your public IP address is: ${publicIp}
 🔗 Local URL:  http://localhost:${PORT}
 `);
+        }
+        
+        // Structured server startup log
+        logger.info('server.started', {
+            port: PORT,
+            environment: process.env.NODE_ENV || 'development',
+            public_ip: publicIp,
+            local_url: `http://localhost:${PORT}`,
+            node_version: process.version,
+            platform: process.platform,
+        });
         
         // Schedule daily log backup to Google Drive
         scheduleDailyBackup();
+        
+        // Start keep-alive to prevent Render free tier spin-down
+        startKeepAlive();
     });
 });
 

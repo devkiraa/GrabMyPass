@@ -14,7 +14,9 @@ import {
     AlertCircle,
     Loader2,
     History,
-    Shield
+    Shield,
+    Rocket,
+    RefreshCcw
 } from 'lucide-react';
 import { useRazorpay } from '@/hooks/useRazorpay';
 
@@ -59,58 +61,81 @@ const PLANS = [
         id: 'free',
         name: 'Free',
         price: 0,
-        description: 'Perfect for getting started',
+        period: 'forever',
+        description: 'Perfect for trying out MakeTicket',
         features: [
-            { text: '100 attendees per event', included: true },
-            { text: '3 events per month', included: true },
+            { text: '50 attendees per event', included: true },
+            { text: '2 events per month', included: true },
             { text: '1 team member', included: true },
             { text: 'Basic email notifications', included: true },
-            { text: 'Standard support', included: true },
-            { text: 'Custom branding', included: false },
-            { text: 'Priority email delivery', included: false },
-            { text: 'Advanced analytics', included: false },
-            { text: 'API access', included: false },
+            { text: 'QR code tickets', included: true },
+            { text: 'Custom email templates', included: false },
+            { text: 'Export data', included: false },
+            { text: 'Priority support', included: false },
         ],
         buttonText: 'Current Plan',
-        popular: false
+        popular: false,
+        color: 'slate'
+    },
+    {
+        id: 'starter',
+        name: 'Starter',
+        price: 49,
+        period: '/month',
+        description: 'Great for small events',
+        features: [
+            { text: '200 attendees per event', included: true },
+            { text: '5 events per month', included: true },
+            { text: '2 team members', included: true },
+            { text: 'Email notifications', included: true },
+            { text: 'Custom email templates', included: true },
+            { text: 'Export attendee data', included: true },
+            { text: 'Custom branding', included: false },
+            { text: 'Advanced analytics', included: false },
+        ],
+        buttonText: 'Upgrade to Starter',
+        popular: false,
+        color: 'blue'
     },
     {
         id: 'pro',
         name: 'Pro',
-        price: 999,
-        description: 'Best for growing teams',
+        price: 499,
+        period: '/month',
+        description: 'For growing organizers',
         features: [
             { text: '1,000 attendees per event', included: true },
             { text: 'Unlimited events', included: true },
             { text: '10 team members', included: true },
             { text: 'Priority email delivery', included: true },
-            { text: 'Priority support', included: true },
             { text: 'Custom branding', included: true },
             { text: 'Advanced analytics', included: true },
             { text: 'Custom email templates', included: true },
-            { text: 'Export data', included: true },
+            { text: 'Export data & reports', included: true },
         ],
         buttonText: 'Upgrade to Pro',
-        popular: true
+        popular: true,
+        color: 'indigo'
     },
     {
         id: 'enterprise',
         name: 'Enterprise',
         price: -1, // Custom pricing
+        period: '',
         description: 'For large organizations',
         features: [
             { text: 'Unlimited attendees', included: true },
             { text: 'Unlimited events', included: true },
             { text: 'Unlimited team members', included: true },
-            { text: 'Dedicated email IPs', included: true },
             { text: 'Dedicated support manager', included: true },
-            { text: 'Custom branding', included: true },
             { text: 'Full API access', included: true },
-            { text: 'SLA guarantee', included: true },
+            { text: 'White-label solution', included: true },
+            { text: 'SLA guarantee (99.9%)', included: true },
             { text: 'Custom integrations', included: true },
         ],
         buttonText: 'Contact Sales',
-        popular: false
+        popular: false,
+        color: 'purple'
     }
 ];
 
@@ -121,6 +146,7 @@ export default function BillingPage() {
     const [loadingHistory, setLoadingHistory] = useState(true);
     const [upgrading, setUpgrading] = useState(false);
     const [cancelling, setCancelling] = useState(false);
+    const [renewing, setRenewing] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
     const [cancelReason, setCancelReason] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
@@ -131,7 +157,8 @@ export default function BillingPage() {
         setError, 
         getSubscription, 
         openUpgradeCheckout,
-        cancelSubscription 
+        cancelSubscription,
+        renewSubscription 
     } = useRazorpay();
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -210,15 +237,29 @@ export default function BillingPage() {
         if (success) {
             setSuccessMessage('Your subscription has been cancelled. You will continue to have access until the end of your billing period.');
             setShowCancelModal(false);
+            setCancelReason('');
             loadSubscription();
         }
         setCancelling(false);
+    };
+
+    const handleRenewSubscription = async () => {
+        setRenewing(true);
+        setError(null);
+        const success = await renewSubscription();
+        if (success) {
+            setSuccessMessage('Your subscription has been renewed successfully! Your plan is now active again.');
+            loadSubscription();
+        }
+        setRenewing(false);
     };
 
     const getPlanIcon = (planId: string) => {
         switch (planId) {
             case 'free':
                 return <Zap className="h-6 w-6 text-gray-600" />;
+            case 'starter':
+                return <Rocket className="h-6 w-6 text-blue-500" />;
             case 'pro':
                 return <Crown className="h-6 w-6 text-yellow-500" />;
             case 'enterprise':
@@ -353,6 +394,31 @@ export default function BillingPage() {
                             </button>
                         </div>
                     )}
+                    
+                    {/* Renew Subscription Button - Show when cancelled but not expired */}
+                    {subscription?.plan !== 'free' && subscription?.status === 'cancelled' && (
+                        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center justify-between flex-wrap gap-4">
+                                <div>
+                                    <p className="text-sm text-amber-600 dark:text-amber-400 font-medium flex items-center gap-2">
+                                        <AlertCircle className="h-4 w-4" />
+                                        Subscription cancelled
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        You&apos;ll continue to have access until {subscription.currentPeriodEnd ? formatDate(subscription.currentPeriodEnd) : 'the end of your billing period'}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleRenewSubscription}
+                                    disabled={renewing}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm font-medium flex items-center gap-2"
+                                >
+                                    {renewing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+                                    Renew Subscription
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Plans */}
@@ -361,10 +427,13 @@ export default function BillingPage() {
                         Available Plans
                     </h2>
                     
-                    <div className="grid md:grid-cols-3 gap-6">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
                         {PLANS.map((plan) => {
                             const isCurrentPlan = subscription?.plan === plan.id;
-                            const canUpgrade = !isCurrentPlan && plan.id !== 'free' && (subscription?.plan === 'free' || plan.id === 'enterprise');
+                            const planOrder = ['free', 'starter', 'pro', 'enterprise'];
+                            const currentPlanIndex = planOrder.indexOf(subscription?.plan || 'free');
+                            const thisPlanIndex = planOrder.indexOf(plan.id);
+                            const canUpgrade = !isCurrentPlan && thisPlanIndex > currentPlanIndex;
                             
                             return (
                                 <div
@@ -571,40 +640,75 @@ export default function BillingPage() {
             {showCancelModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white dark:bg-gray-800 rounded-xl max-w-md w-full p-6">
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                            Cancel Subscription
-                        </h3>
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                            </div>
+                            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                                Cancel Subscription
+                            </h3>
+                        </div>
+                        
                         <p className="text-gray-600 dark:text-gray-400 mb-4">
-                            Are you sure you want to cancel your subscription? You&apos;ll lose access to Pro features at the end of your billing period.
+                            Are you sure you want to cancel your <span className="font-medium capitalize">{subscription?.plan}</span> subscription?
                         </p>
+                        
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mb-4">
+                            <p className="text-sm text-amber-800 dark:text-amber-200">
+                                <strong>What happens next:</strong>
+                            </p>
+                            <ul className="text-sm text-amber-700 dark:text-amber-300 mt-1 space-y-1">
+                                <li>• You&apos;ll keep access until {subscription?.currentPeriodEnd ? formatDate(subscription.currentPeriodEnd) : 'end of billing period'}</li>
+                                <li>• After that, you&apos;ll be moved to the Free plan</li>
+                                <li>• You can renew anytime before the period ends</li>
+                            </ul>
+                        </div>
                         
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Reason for cancellation (optional)
+                                Help us improve - Why are you cancelling? (optional)
                             </label>
-                            <textarea
+                            <select
                                 value={cancelReason}
                                 onChange={(e) => setCancelReason(e.target.value)}
-                                placeholder="Tell us why you&apos;re leaving..."
-                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
-                                rows={3}
-                            />
+                                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white mb-2"
+                            >
+                                <option value="">Select a reason...</option>
+                                <option value="Too expensive">Too expensive</option>
+                                <option value="Not using it enough">Not using it enough</option>
+                                <option value="Missing features">Missing features I need</option>
+                                <option value="Found alternative">Found an alternative</option>
+                                <option value="Technical issues">Technical issues</option>
+                                <option value="Temporary - will return">Just temporary, will return later</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            {cancelReason === 'Other' && (
+                                <textarea
+                                    placeholder="Please tell us more..."
+                                    onChange={(e) => setCancelReason(e.target.value || 'Other')}
+                                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
+                                    rows={2}
+                                />
+                            )}
                         </div>
                         
                         <div className="flex gap-3 justify-end">
                             <button
-                                onClick={() => setShowCancelModal(false)}
-                                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                                onClick={() => {
+                                    setShowCancelModal(false);
+                                    setCancelReason('');
+                                }}
+                                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg font-medium"
                             >
                                 Keep Subscription
                             </button>
                             <button
                                 onClick={handleCancelSubscription}
                                 disabled={cancelling}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2 font-medium"
                             >
                                 {cancelling && <Loader2 className="h-4 w-4 animate-spin" />}
-                                Cancel Subscription
+                                Yes, Cancel
                             </button>
                         </div>
                     </div>

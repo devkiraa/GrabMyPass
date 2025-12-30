@@ -4,6 +4,7 @@ import { verifyAdmin } from '../middleware/admin';
 import {
     getSystemStats,
     runSystemHealthCheck,
+    getServerStatus,
     getServerLogs,
     clearServerLogs,
     streamLogs,
@@ -29,7 +30,14 @@ import {
     systemEmailCallback,
     getEmailStats,
     getZeptoMailCredits,
-    sendZeptoMailTestEmail
+    sendZeptoMailTestEmail,
+    // Revenue Management
+    getRevenueStats,
+    getAllPayments,
+    getAllSubscriptions,
+    getCancelledSubscriptions,
+    processRefund,
+    getPaymentDetails
 } from '../controllers/adminController';
 
 export const adminRouter = express.Router();
@@ -46,6 +54,7 @@ adminRouter.use(verifyToken, verifyAdmin);
 
 adminRouter.get('/stats', getSystemStats);
 adminRouter.get('/health', runSystemHealthCheck);
+adminRouter.get('/server-status', getServerStatus);
 
 // Log Management
 adminRouter.get('/logs', getServerLogs);
@@ -82,3 +91,11 @@ adminRouter.get('/system-email/auth-url', getSystemEmailAuthUrl);      // Get Gm
 adminRouter.get('/email/stats', getEmailStats);
 adminRouter.get('/email/zeptomail/credits', getZeptoMailCredits);
 adminRouter.post('/email/zeptomail/test', sendZeptoMailTestEmail);
+
+// Revenue Management
+adminRouter.get('/revenue/stats', getRevenueStats);
+adminRouter.get('/revenue/payments', getAllPayments);
+adminRouter.get('/revenue/payments/:paymentId', getPaymentDetails);
+adminRouter.get('/revenue/subscriptions', getAllSubscriptions);
+adminRouter.get('/revenue/cancelled', getCancelledSubscriptions);
+adminRouter.post('/revenue/refund/:paymentId', processRefund);

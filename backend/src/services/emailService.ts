@@ -5,6 +5,7 @@ import { EmailTemplate } from '../models/EmailTemplate';
 import { EmailLog } from '../models/EmailLog';
 import { User } from '../models/User';
 import { generateTicketImage } from './ticketGenerator';
+import { logger } from '../lib/logger';
 
 // Generate default email HTML if no template selected
 const generateDefaultEmailHtml = (data: {
@@ -121,19 +122,23 @@ interface SendTicketEmailParams {
 export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<boolean> => {
     const { eventHostId, recipientEmail, ticketData, eventDetails } = params;
 
-    console.log(`📧 Sending registration email to ${recipientEmail} for ${eventDetails.title}`);
+    logger.info('email.sending_registration', { 
+        recipient: recipientEmail, 
+        event_title: eventDetails.title,
+        event_id: eventDetails._id 
+    });
 
     try {
         // Check if confirmation emails are enabled
         if (eventDetails.sendConfirmationEmail === false) {
-            console.log(`ℹ️ Confirmation emails disabled for event ${eventDetails.title}`);
+            logger.debug('email.confirmation_disabled', { event_title: eventDetails.title });
             return true;
         }
 
         // Get host info
         const host = await User.findById(eventHostId);
         if (!host) {
-            console.error('❌ Event host not found');
+            logger.error('email.host_not_found', { host_id: eventHostId });
             return false;
         }
 
@@ -168,7 +173,7 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
                 emailHtml = replacePlaceholders(template.body, placeholderData);
                 emailSubject = replacePlaceholders(template.subject, placeholderData);
                 templateName = template.name;
-                console.log(`📝 Using template: ${template.name}`);
+                logger.debug('email.using_template', { template_name: template.name });
             } else {
                 // Fallback to default
                 emailHtml = generateDefaultEmailHtml({
@@ -192,11 +197,11 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
                 qrCodeUrl: placeholderData.qr_code_url
             });
             emailSubject = `🎉 Your ticket for ${placeholderData.event_title}`;
-            console.log(`📝 Using default template`);
+            logger.debug('email.using_default_template');
         }
 
         // Try to send via Gmail OAuth
-        console.log(`🔍 Looking for email account for hostId: ${eventHostId}`);
+        logger.debug('email.looking_for_account', { host_id: eventHostId });
 
         // Convert to ObjectId for consistent querying
         const mongoose = require('mongoose');
@@ -208,10 +213,10 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
             provider: 'gmail'
         });
 
-        console.log(`🔍 Found email account: ${emailAccount ? emailAccount.email : 'NONE'}`);
+        logger.debug('email.account_lookup', { found: !!emailAccount, email: emailAccount?.email });
 
         if (!emailAccount) {
-            console.error(`❌ No active Gmail account found for host: ${eventHostId}`);
+            logger.warn('email.no_account', { host_id: eventHostId });
 
             // Log failed email
             await EmailLog.create({
@@ -233,7 +238,7 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
             return false;
         }
 
-        console.log(`📤 Sending via Gmail: ${emailAccount.email} (for host: ${eventHostId})`);
+        logger.debug('email.sending_via_gmail', { email: emailAccount.email, host_id: eventHostId });
 
         // Send via Gmail OAuth
         const oauth2Client = new google.auth.OAuth2(
@@ -263,7 +268,7 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
         // Generate ticket image if enabled
         let ticketImageBuffer: Buffer | null = null;
         if (eventDetails.attachTicket !== false && eventDetails.ticketTemplateId) {
-            console.log(`🎫 Generating ticket with template: ${eventDetails.ticketTemplateId}`);
+            logger.debug('email.generating_ticket', { template_id: eventDetails.ticketTemplateId });
             ticketImageBuffer = await generateTicketImage({
                 templateId: eventDetails.ticketTemplateId,
                 guestName: placeholderData.guest_name,
@@ -275,7 +280,7 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
             });
         } else if (eventDetails.attachTicket !== false) {
             // Generate default ticket even without template
-            console.log(`🎫 Generating default ticket`);
+            logger.debug('email.generating_default_ticket');
             ticketImageBuffer = await generateTicketImage({
                 guestName: placeholderData.guest_name,
                 eventTitle: placeholderData.event_title,
@@ -328,7 +333,7 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
                 .replace(/\//g, '_')
                 .replace(/=+$/, '');
 
-            console.log(`📎 Email with ticket attachment prepared`);
+            logger.debug('email.attachment_prepared');
         } else {
             // Simple HTML email without attachment
             rawEmail = Buffer.from(
@@ -369,11 +374,15 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
             sentAt: new Date()
         });
 
-        console.log(`✅ Email sent successfully to ${recipientEmail}`);
+        logger.info('email.sent_success', { recipient: recipientEmail, event_id: eventDetails._id });
         return true;
 
     } catch (error: any) {
-        console.error(`❌ Failed to send email:`, error.message);
+        logger.error('email.send_failed', { 
+            recipient: recipientEmail, 
+            event_id: eventDetails._id,
+            error: error.message 
+        }, error);
 
         // Log failed email
         try {
@@ -391,8 +400,8 @@ export const sendTicketEmail = async (params: SendTicketEmailParams): Promise<bo
                 eventTitle: eventDetails.title,
                 ticketCode: generateTicketCode(ticketData.qrCodeHash)
             });
-        } catch (logError) {
-            console.error('Failed to log email error:', logError);
+        } catch (logError: any) {
+            logger.error('email.log_failed', { error: logError.message }, logError);
         }
 
         return false;

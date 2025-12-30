@@ -66,15 +66,16 @@ export const getPlans = async (req: Request, res: Response) => {
 };
 
 /**
- * Create order to upgrade to Pro plan
+ * Create order to upgrade to paid plan
  */
 export const createUpgradeOrder = async (req: Request, res: Response) => {
     try {
         const userId = (req as any).user.id;
         const { plan } = req.body;
 
-        if (plan !== 'pro') {
-            return res.status(400).json({ message: 'Invalid plan. Only Pro upgrade is available.' });
+        // Validate plan
+        if (!['starter', 'pro'].includes(plan)) {
+            return res.status(400).json({ message: 'Invalid plan. Please choose Starter or Pro.' });
         }
 
         const user = await User.findById(userId);
@@ -84,12 +85,17 @@ export const createUpgradeOrder = async (req: Request, res: Response) => {
 
         // Check current subscription
         const currentSub = await Subscription.findOne({ userId });
-        if (currentSub?.plan === 'pro' && currentSub.status === 'active') {
-            return res.status(400).json({ message: 'You are already on the Pro plan' });
+        if (currentSub !== null && currentSub.plan === plan && currentSub.status === 'active') {
+            return res.status(400).json({ message: `You are already on the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan` });
         }
 
-        const planConfig = PLAN_CONFIGS.pro;
-        const receipt = `pro_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+        // Get plan config
+        const planConfig = PLAN_CONFIGS[plan as keyof typeof PLAN_CONFIGS];
+        if (!planConfig || !planConfig.price) {
+            return res.status(400).json({ message: 'Plan configuration not found' });
+        }
+
+        const receipt = `${plan}_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 
         // Create Razorpay order
         const order = await razorpayService.createOrder({
@@ -98,7 +104,7 @@ export const createUpgradeOrder = async (req: Request, res: Response) => {
             receipt: receipt,
             notes: {
                 userId: userId,
-                plan: 'pro',
+                plan: plan,
                 userEmail: user.email
             }
         });
@@ -111,7 +117,7 @@ export const createUpgradeOrder = async (req: Request, res: Response) => {
             currency: order.currency,
             status: 'created',
             type: 'subscription',
-            plan: 'pro',
+            plan: plan,
             receipt: receipt,
             notes: order.notes,
             expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes expiry
@@ -122,7 +128,7 @@ export const createUpgradeOrder = async (req: Request, res: Response) => {
             amount: order.amount,
             currency: order.currency,
             keyId: razorpayService.getKeyId(),
-            plan: 'pro',
+            plan: plan,
             planName: planConfig.name,
             prefill: {
                 name: user.name || '',
@@ -336,21 +342,81 @@ export const cancelSubscription = async (req: Request, res: Response) => {
             return res.status(400).json({ message: 'You are already on the free plan' });
         }
 
+        if (subscription.status === 'cancelled') {
+            return res.status(400).json({ message: 'Subscription is already cancelled' });
+        }
+
         // Mark as cancelled - will downgrade at period end
         subscription.status = 'cancelled';
         subscription.cancelledAt = new Date();
-        subscription.cancelReason = reason;
+        subscription.cancelReason = reason || 'User requested cancellation';
         await subscription.save();
 
         res.json({
             success: true,
-            message: 'Subscription cancelled. You will be downgraded to Free at the end of your billing period.',
-            validUntil: subscription.currentPeriodEnd
+            message: 'Subscription cancelled successfully. You will continue to have access until the end of your billing period.',
+            subscription: {
+                plan: subscription.plan,
+                status: 'cancelled',
+                validUntil: subscription.currentPeriodEnd,
+                cancelledAt: subscription.cancelledAt
+            }
         });
 
     } catch (error: any) {
         console.error('Cancel subscription error:', error);
         res.status(500).json({ message: 'Failed to cancel subscription', error: error.message });
+    }
+};
+
+/**
+ * Renew/Reactivate a cancelled subscription
+ */
+export const renewSubscription = async (req: Request, res: Response) => {
+    try {
+        const userId = (req as any).user.id;
+
+        const subscription = await Subscription.findOne({ userId });
+        if (!subscription) {
+            return res.status(404).json({ message: 'No subscription found' });
+        }
+
+        if (subscription.plan === 'free') {
+            return res.status(400).json({ message: 'Cannot renew a free plan. Please upgrade instead.' });
+        }
+
+        if (subscription.status === 'active') {
+            return res.status(400).json({ message: 'Subscription is already active' });
+        }
+
+        // Check if subscription hasn't expired yet
+        const now = new Date();
+        if (subscription.currentPeriodEnd && new Date(subscription.currentPeriodEnd) < now) {
+            return res.status(400).json({ 
+                message: 'Subscription has expired. Please create a new subscription.',
+                expired: true
+            });
+        }
+
+        // Reactivate the subscription
+        subscription.status = 'active';
+        subscription.cancelledAt = undefined;
+        subscription.cancelReason = undefined;
+        await subscription.save();
+
+        res.json({
+            success: true,
+            message: 'Subscription renewed successfully! Your plan is now active again.',
+            subscription: {
+                plan: subscription.plan,
+                status: 'active',
+                validUntil: subscription.currentPeriodEnd
+            }
+        });
+
+    } catch (error: any) {
+        console.error('Renew subscription error:', error);
+        res.status(500).json({ message: 'Failed to renew subscription', error: error.message });
     }
 };
 

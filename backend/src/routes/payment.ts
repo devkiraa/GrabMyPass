@@ -9,6 +9,7 @@ import {
     handleWebhook,
     getPaymentHistory,
     cancelSubscription,
+    renewSubscription,
     checkFeatureAccess
 } from '../controllers/subscriptionController';
 
@@ -27,6 +28,7 @@ router.post('/upgrade', verifyToken, createUpgradeOrder);
 router.post('/verify', verifyToken, verifyPayment);
 router.get('/history', verifyToken, getPaymentHistory);
 router.post('/cancel', verifyToken, cancelSubscription);
+router.post('/renew', verifyToken, renewSubscription);
 router.get('/feature/:feature', verifyToken, checkFeatureAccess);
 
 export default router;

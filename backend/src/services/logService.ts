@@ -3,6 +3,7 @@ import path from 'path';
 import { google } from 'googleapis';
 import { SystemSettings } from '../models/SystemSettings';
 import { AuditLog } from '../models/AuditLog';
+import { logger } from '../lib/logger';
 
 // Log directory path
 const logsDir = path.join(process.cwd(), 'logs');
@@ -30,7 +31,7 @@ const broadcastLog = (logLine: string) => {
         try {
             client.write(`data: ${JSON.stringify({ type: 'log', data: logLine })}\n\n`);
         } catch (error) {
-            console.error(`Failed to send to client ${id}:`, error);
+            logger.warn('sse.broadcast_failed', { client_id: id });
             sseClients.delete(id);
         }
     });
@@ -39,13 +40,13 @@ const broadcastLog = (logLine: string) => {
 // Register SSE client
 export const registerSSEClient = (clientId: string, res: any) => {
     sseClients.set(clientId, res);
-    console.log(`[SSE] Client connected: ${clientId}. Total clients: ${sseClients.size}`);
+    logger.debug('sse.client_connected', { client_id: clientId, total_clients: sseClients.size });
 };
 
 // Unregister SSE client
 export const unregisterSSEClient = (clientId: string) => {
     sseClients.delete(clientId);
-    console.log(`[SSE] Client disconnected: ${clientId}. Total clients: ${sseClients.size}`);
+    logger.debug('sse.client_disconnected', { client_id: clientId, total_clients: sseClients.size });
 };
 
 // Get buffered logs
@@ -106,9 +107,10 @@ export const clearLogs = (filename: string = 'access.log'): boolean => {
     try {
         fs.writeFileSync(logPath, '');
         logBuffer.length = 0; // Clear buffer too
+        logger.info('logs.cleared', { filename });
         return true;
-    } catch (error) {
-        console.error('Failed to clear logs:', error);
+    } catch (error: any) {
+        logger.error('logs.clear_failed', { filename, error: error.message }, error);
         return false;
     }
 };
@@ -215,8 +217,8 @@ const createLogsFolderInDrive = async (accessToken: string, refreshToken: string
         });
 
         return folder.data.id!;
-    } catch (error) {
-        console.error('Failed to create Drive folder:', error);
+    } catch (error: any) {
+        logger.error('drive.folder_creation_failed', { error: error.message }, error);
         return null;
     }
 };
@@ -303,9 +305,10 @@ export const uploadLogsToDrive = async (): Promise<{ success: boolean; fileId?: 
         settings.logBackup.lastBackup = new Date();
         await settings.save();
 
+        logger.info('drive.upload_success', { file_id: fileId, filename });
         return { success: true, fileId };
     } catch (error: any) {
-        console.error('Drive upload error:', error);
+        logger.error('drive.upload_failed', { error: error.message }, error);
         return { success: false, error: error.message };
     }
 };
@@ -355,16 +358,16 @@ export const scheduleDailyBackup = () => {
     
     setTimeout(() => {
         uploadLogsToDrive().then(result => {
-            console.log('[Log Backup] Daily backup result:', result);
+            logger.info('backup.daily_completed', { success: result.success, file_id: result.fileId, error: result.error });
         });
         
         // Schedule next backup (every 24 hours)
         setInterval(() => {
             uploadLogsToDrive().then(result => {
-                console.log('[Log Backup] Daily backup result:', result);
+                logger.info('backup.daily_completed', { success: result.success, file_id: result.fileId, error: result.error });
             });
         }, 24 * 60 * 60 * 1000);
     }, msUntilMidnight);
     
-    console.log(`[Log Backup] Scheduled daily backup in ${Math.round(msUntilMidnight / 1000 / 60)} minutes`);
+    logger.info('backup.scheduled', { minutes_until_next: Math.round(msUntilMidnight / 1000 / 60) });
 };

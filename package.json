@@ -1,5 +1,6 @@
 {
     "name": "maketicket-monorepo",
+    "version": "1.0.0",
     "private": true,
     "workspaces": [
         "backend",
@@ -10,9 +11,24 @@
         "dev:backend": "npm run dev --workspace=backend",
         "dev:frontend": "npm run dev --workspace=frontend",
         "build": "npm run build --workspaces",
-        "install:all": "npm install"
+        "build:backend": "npm run build --workspace=backend",
+        "build:frontend": "npm run build --workspace=frontend",
+        "start": "concurrently -k -n \"API,WEB\" -c \"bgGreen.bold,bgCyan.bold\" \"npm run start:backend\" \"npm run start:frontend\"",
+        "start:backend": "npm run start --workspace=backend",
+        "start:frontend": "npm run start --workspace=frontend",
+        "start:prod": "cross-env NODE_ENV=production npm run start",
+        "install:all": "npm install",
+        "clean": "rimraf backend/dist frontend/.next node_modules/.cache",
+        "lint": "npm run lint --workspaces --if-present",
+        "typecheck": "npm run typecheck --workspaces --if-present"
     },
     "devDependencies": {
-        "concurrently": "^9.2.1"
+        "concurrently": "^9.2.1",
+        "cross-env": "^7.0.3",
+        "rimraf": "^5.0.10"
+    },
+    "engines": {
+        "node": ">=18.0.0",
+        "npm": ">=9.0.0"
     }
 }

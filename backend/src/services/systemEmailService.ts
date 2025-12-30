@@ -3,6 +3,7 @@ import { SendMailClient } from 'zeptomail';
 import { SystemSettings } from '../models/SystemSettings';
 import { EmailAccount } from '../models/EmailAccount';
 import { EmailLog } from '../models/EmailLog';
+import { logger } from '../lib/logger';
 
 // Generate system email templates
 const systemTemplates = {
@@ -296,9 +297,9 @@ export const sendSystemEmail = async (
 
                 emailSent = true;
                 usedProvider = 'zeptomail';
-                console.log(`✅ System email (${type}) sent via ZeptoMail to ${recipientEmail}`);
+                logger.info('email.system_sent', { type, provider: 'zeptomail', recipient: recipientEmail });
             } catch (zeptoError: any) {
-                console.error('ZeptoMail send failed:', zeptoError.message);
+                logger.error('email.system_failed', { type, provider: 'zeptomail', error: zeptoError.message }, zeptoError);
                 // Fall through to Gmail
             }
         }
@@ -325,7 +326,7 @@ export const sendSystemEmail = async (
                     await emailAccount.save();
                 }
             } catch (refreshError) {
-                console.log('Token refresh not needed or failed');
+                logger.debug('email.token_refresh_skipped');
             }
 
             const gmail = google.gmail({ version: 'v1', auth: oauth2Client });
@@ -352,7 +353,7 @@ export const sendSystemEmail = async (
 
             emailSent = true;
             usedProvider = 'gmail';
-            console.log(`✅ System email (${type}) sent via Gmail to ${recipientEmail}`);
+            logger.info('email.system_sent', { type, provider: 'gmail', recipient: recipientEmail });
         }
 
         if (!emailSent) {
@@ -380,7 +381,7 @@ export const sendSystemEmail = async (
         return true;
 
     } catch (error: any) {
-        console.error(`❌ Failed to send system email (${type}):`, error.message);
+        logger.error('email.system_failed', { type, recipient: recipientEmail, error: error.message }, error);
 
         // Log failed email
         try {
@@ -393,8 +394,8 @@ export const sendSystemEmail = async (
                 status: 'failed',
                 errorMessage: error.message
             });
-        } catch (logError) {
-            console.error('Failed to log email error:', logError);
+        } catch (logError: any) {
+            logger.error('email.log_failed', { error: logError.message }, logError);
         }
 
         return false;

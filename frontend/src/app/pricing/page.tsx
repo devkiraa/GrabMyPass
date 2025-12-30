@@ -21,35 +21,52 @@ export default function PricingPage() {
             name: 'Free',
             price: '₹0',
             period: 'forever',
-            description: 'Perfect for small events and getting started.',
+            description: 'Perfect for trying out MakeTicket.',
             features: [
-                'Up to 100 attendees per event',
-                'Unlimited events',
+                '50 attendees per event',
+                '2 events per month',
+                '1 team member',
                 'QR code tickets',
                 'Email confirmations',
-                'Basic analytics',
-                'Community support'
+                'Basic analytics'
             ],
             cta: 'Get Started',
             popular: false
         },
         {
-            id: 'pro',
-            name: 'Pro',
-            price: '₹999',
+            id: 'starter',
+            name: 'Starter',
+            price: '₹49',
             period: '/month',
-            description: 'For growing organizers who need more power.',
+            description: 'Great for small events and workshops.',
             features: [
-                'Up to 1,000 attendees per event',
+                '200 attendees per event',
+                '5 events per month',
+                '2 team members',
                 'Custom branding',
                 'Priority email delivery',
+                'Standard support'
+            ],
+            cta: 'Start 7-day Trial',
+            ctaLoggedIn: 'Upgrade Now',
+            popular: false
+        },
+        {
+            id: 'pro',
+            name: 'Pro',
+            price: '₹499',
+            period: '/month',
+            description: 'For growing organizers and businesses.',
+            features: [
+                '1,000 attendees per event',
+                'Unlimited events',
+                '10 team members',
                 'Advanced analytics',
-                'Team members (up to 5)',
-                'Email support',
                 'Custom email templates',
+                'Priority support',
                 'Export attendee data'
             ],
-            cta: 'Start Free Trial',
+            cta: 'Start 7-day Trial',
             ctaLoggedIn: 'Upgrade Now',
             popular: true
         },
@@ -58,16 +75,16 @@ export default function PricingPage() {
             name: 'Enterprise',
             price: 'Custom',
             period: '',
-            description: 'For large organizations with complex needs.',
+            description: 'For large organizations with custom needs.',
             features: [
                 'Unlimited attendees',
-                'White-label solution',
+                'Unlimited events',
+                'Unlimited team members',
                 'API access',
-                'Dedicated support',
-                'Custom integrations',
+                'White-label solution',
                 'SLA guarantee',
-                'On-premise option',
-                'Training & onboarding'
+                'Dedicated support',
+                'Custom integrations'
             ],
             cta: 'Contact Sales',
             popular: false
@@ -85,7 +102,7 @@ export default function PricingPage() {
     };
 
     const getButtonText = (plan: typeof plans[0]) => {
-        if (isLoggedIn && plan.id === 'pro') {
+        if (isLoggedIn && (plan.id === 'pro' || plan.id === 'starter')) {
             return plan.ctaLoggedIn || plan.cta;
         }
         return plan.cta;
@@ -96,11 +113,11 @@ export default function PricingPage() {
             title="Pricing"
             subtitle="Simple, transparent pricing. No hidden fees."
         >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
                 {plans.map((plan, i) => (
                     <div
                         key={i}
-                        className={`rounded-2xl border p-8 ${plan.popular
+                        className={`rounded-2xl border p-6 ${plan.popular
                             ? 'border-indigo-200 bg-indigo-50/50 ring-2 ring-indigo-600 relative'
                             : 'border-slate-200 bg-white'
                             }`}
@@ -110,24 +127,24 @@ export default function PricingPage() {
                                 Most Popular
                             </div>
                         )}
-                        <h3 className="text-xl font-semibold text-slate-900 mb-2">{plan.name}</h3>
+                        <h3 className="text-lg font-semibold text-slate-900 mb-2">{plan.name}</h3>
                         <div className="flex items-baseline gap-1 mb-2">
-                            <span className="text-4xl font-bold text-slate-900">{plan.price}</span>
-                            <span className="text-slate-500">{plan.period}</span>
+                            <span className="text-3xl font-bold text-slate-900">{plan.price}</span>
+                            <span className="text-slate-500 text-sm">{plan.period}</span>
                         </div>
-                        <p className="text-slate-600 mb-6">{plan.description}</p>
+                        <p className="text-sm text-slate-600 mb-4">{plan.description}</p>
                         <Link href={getButtonLink(plan)}>
-                            <Button className={`w-full rounded-full mb-6 ${plan.popular
+                            <Button className={`w-full rounded-full mb-4 text-sm ${plan.popular
                                 ? 'bg-indigo-600 hover:bg-indigo-700'
-                                : 'bg-slate-900 hover:bg-slate-800'
+                                : plan.id === 'starter' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-900 hover:bg-slate-800'
                                 }`}>
                                 {getButtonText(plan)}
                             </Button>
                         </Link>
-                        <ul className="space-y-3">
+                        <ul className="space-y-2">
                             {plan.features.map((feature, j) => (
-                                <li key={j} className="flex items-start gap-3 text-sm text-slate-600">
-                                    <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                                <li key={j} className="flex items-start gap-2 text-xs text-slate-600">
+                                    <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
                                     {feature}
                                 </li>
                             ))}
