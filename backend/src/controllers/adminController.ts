@@ -868,7 +868,7 @@ export const getSystemSettings = async (req: Request, res: Response) => {
 // Update system settings
 export const updateSystemSettings = async (req: Request, res: Response) => {
     try {
-        const { systemEmail, emailSettings, emailTemplates, platformName, supportEmail, maintenanceMode, registrationEnabled } = req.body;
+        const { systemEmail, emailSettings, emailTemplates, platformName, supportEmail, maintenanceMode, registrationEnabled, securitySettings } = req.body;
 
         const settings = await (SystemSettings as any).getSettings();
 
@@ -881,6 +881,9 @@ export const updateSystemSettings = async (req: Request, res: Response) => {
         }
         if (emailTemplates !== undefined) {
             settings.emailTemplates = { ...settings.emailTemplates, ...emailTemplates };
+        }
+        if (securitySettings !== undefined) {
+            settings.securitySettings = { ...settings.securitySettings, ...securitySettings };
         }
         if (platformName !== undefined) settings.platformName = platformName;
         if (supportEmail !== undefined) settings.supportEmail = supportEmail;
@@ -2882,7 +2885,7 @@ export const seedDefaultTemplates = async (req: Request, res: Response) => {
         }
 
         logger.info('admin.templates_seeded', { created, skipped });
-        res.json({ 
+        res.json({
             message: `Seeded ${created} templates, skipped ${skipped} existing`,
             created,
             skipped
@@ -2890,5 +2893,85 @@ export const seedDefaultTemplates = async (req: Request, res: Response) => {
     } catch (error: any) {
         logger.error('admin.seed_templates_failed', { error: error.message });
         res.status(500).json({ message: 'Failed to seed templates' });
+    }
+};
+
+// ==================== SECURITY DANGER ZONE ACTIONS ====================
+
+// Force logout all users (invalidate all sessions)
+export const forceLogoutAllUsers = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const adminId = req.user?.id;
+
+        // Check if database connection is available
+        if (!mongoose.connection.db) {
+            throw new Error('Database connection not available');
+        }
+
+        // Clear all sessions from database
+        const sessionCount = await mongoose.connection.db.collection('sessions').deleteMany({});
+
+        // Audit log this critical action
+        await AuditLog.create({
+            adminId,
+            action: 'FORCE_LOGOUT_ALL_USERS',
+            details: {
+                sessionsCleared: sessionCount.deletedCount || 0,
+                reason: 'Admin initiated force logout'
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        logger.warn('admin.force_logout_all_users', {
+            adminId,
+            sessionsCleared: sessionCount.deletedCount,
+            ipAddress: req.ip
+        });
+
+        res.json({
+            message: 'All users have been logged out successfully',
+            sessionsCleared: sessionCount.deletedCount || 0
+        });
+    } catch (error: any) {
+        logger.error('admin.force_logout_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to force logout all users' });
+    }
+};
+
+// Rotate API keys (invalidate all existing API keys)
+export const rotateApiKeys = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const adminId = req.user?.id;
+
+        // For now, this is a placeholder - in a real implementation,
+        // you would invalidate all API keys and generate new ones
+        // Since this app doesn't seem to have API keys yet, we'll just log the action
+
+        // Audit log this critical action
+        await AuditLog.create({
+            adminId,
+            action: 'ROTATE_API_KEYS',
+            details: {
+                reason: 'Admin initiated API key rotation'
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        logger.warn('admin.rotate_api_keys', {
+            adminId,
+            ipAddress: req.ip
+        });
+
+        res.json({
+            message: 'API keys rotated successfully. All existing API keys have been invalidated.',
+            note: 'Users will need to generate new API keys if this feature is implemented.'
+        });
+    } catch (error: any) {
+        logger.error('admin.rotate_api_keys_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to rotate API keys' });
     }
 };

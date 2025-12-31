@@ -57,6 +57,27 @@ const SystemSettingsSchema = new mongoose.Schema({
         folderId: { type: String },
         lastBackup: { type: Date },
         backupFrequency: { type: String, enum: ['hourly', '4x_daily', 'daily', 'weekly'], default: '4x_daily' }
+    },
+
+    // Security Settings
+    securitySettings: {
+        // Authentication Policies
+        enforceStrongPasswords: { type: Boolean, default: true },
+        enable2FA: { type: Boolean, default: false },
+        allowGoogleAuth: { type: Boolean, default: true },
+
+        // Session Management
+        sessionTimeout: { type: Number, default: 30 }, // minutes
+        maxLoginAttempts: { type: Number, default: 5 },
+
+        // Rate Limiting
+        rateLimitEnabled: { type: Boolean, default: true },
+        rateLimitWindow: { type: Number, default: 15 }, // minutes
+        rateLimitMaxRequests: { type: Number, default: 100 },
+
+        // Security Features
+        loginAlertEnabled: { type: Boolean, default: false },
+        suspiciousActivityMonitoring: { type: Boolean, default: true }
     }
 
 }, { timestamps: true });

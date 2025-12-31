@@ -54,7 +54,10 @@ import {
     updateSystemEmailTemplate,
     toggleSystemTemplateStatus,
     deleteSystemEmailTemplate,
-    seedDefaultTemplates
+    seedDefaultTemplates,
+    // Security Actions
+    forceLogoutAllUsers,
+    rotateApiKeys
 } from '../controllers/adminController';
 
 export const adminRouter = express.Router();
@@ -135,3 +138,7 @@ adminRouter.post('/email-templates/seed', seedDefaultTemplates);
 adminRouter.patch('/email-templates/:templateId', updateSystemEmailTemplate);
 adminRouter.patch('/email-templates/:templateId/toggle', toggleSystemTemplateStatus);
 adminRouter.delete('/email-templates/:templateId', deleteSystemEmailTemplate);
+
+// Security Actions
+adminRouter.post('/security/force-logout-all', forceLogoutAllUsers);
+adminRouter.post('/security/rotate-api-keys', rotateApiKeys);

@@ -598,9 +598,12 @@ function NotificationBell() {
             if (res.ok) {
                 const data = await res.json();
                 setUnreadCount(data.unreadCount);
+            } else {
+                if (res.status === 401 || res.status === 403) return;
+                console.warn(`Failed to fetch unread count: ${res.status}`);
             }
         } catch (err) {
-            console.error('Failed to fetch unread count');
+            console.warn('Failed to fetch unread count:', err);
         }
     };
 
