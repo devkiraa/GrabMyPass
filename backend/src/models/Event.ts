@@ -62,6 +62,16 @@ const EventSchema = new mongoose.Schema({
 
     // Form Header/Banner Image
     formHeaderImage: { type: String }, // Base64 or URL for form banner
+
+    // UPI Payment Configuration
+    paymentConfig: {
+        enabled: { type: Boolean, default: false },
+        upiId: { type: String }, // Host's UPI ID (e.g., username@paytm, 9876543210@ybl)
+        upiName: { type: String }, // Name to display on QR (e.g., "Event Organizer Name")
+        requirePaymentProof: { type: Boolean, default: true }, // Require screenshot upload
+        autoVerifyEnabled: { type: Boolean, default: false }, // Enable auto-verification via statement PDF
+        verificationNote: { type: String } // Instructions for payment (e.g., "Please upload clear screenshot")
+    },
 }, { timestamps: true });
 
 EventSchema.index({ hostId: 1, slug: 1 }, { unique: true });

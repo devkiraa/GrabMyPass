@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { createSession } from './authController';
 import mongoose from 'mongoose';
 import { User } from '../models/User';
 import { Event } from '../models/Event';
@@ -7,6 +8,7 @@ import { Payment } from '../models/Payment';
 import { Subscription } from '../models/Subscription';
 import { PlanConfig, DEFAULT_PLAN_CONFIGS } from '../models/PlanConfig';
 import { EmailTemplate } from '../models/EmailTemplate';
+import { SecurityEvent } from '../models/SecurityEvent';
 import {
     getAllPlanConfigs,
     clearPlanConfigCache,
@@ -29,6 +31,33 @@ import {
     disconnectDrive
 } from '../services/logService';
 import { logger } from '../lib/logger';
+
+// Get Security Events (Threat Monitor)
+export const getSecurityEvents = async (req: Request, res: Response) => {
+    try {
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const skip = (page - 1) * limit;
+
+        const events = await SecurityEvent.find()
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('userId', 'email username')
+            .lean();
+
+        const total = await SecurityEvent.countDocuments();
+
+        res.json({
+            events,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch security events' });
+    }
+};
 
 // Get System Overview Stats
 export const getSystemStats = async (req: Request, res: Response) => {
@@ -287,6 +316,118 @@ export const getAllUsers = async (req: Request, res: Response) => {
     }
 };
 
+// Get Single User Details with Stats
+export const getUserDetails = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const user = await User.findById(userId).select('-password -smtpConfig').lean();
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Fetch Stats
+        const [eventsCount, ticketsCount, subscription] = await Promise.all([
+            Event.countDocuments({ hostId: userId }),
+            Ticket.countDocuments({ ownerId: userId }),
+            Subscription.findOne({ userId }).select('plan status').lean()
+        ]);
+
+        res.json({
+            ...user,
+            eventsCount,
+            ticketsCount,
+            plan: subscription?.plan || 'free',
+            planStatus: subscription?.status
+        });
+    } catch (error: any) {
+        logger.error('admin.fetch_user_details_failed', { error: error.message }, error);
+        res.status(500).json({ message: 'Failed to fetch user details' });
+    }
+};
+
+
+
+// Get User Events
+export const getUserEvents = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 10;
+        const skip = (page - 1) * limit;
+
+        const events = await Event.find({ hostId: userId })
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .lean();
+
+        const total = await Event.countDocuments({ hostId: userId });
+
+        res.json({
+            events,
+            total,
+            page,
+            pages: Math.ceil(total / limit)
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to fetch user events' });
+    }
+};
+
+// Get User Activity (Synthetic Timeline with Pagination)
+export const getUserActivity = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        const page = parseInt(req.query.page as string) || 1;
+        const limit = parseInt(req.query.limit as string) || 20;
+        const skip = (page - 1) * limit;
+
+        const [logins, events, tickets] = await Promise.all([
+            Session.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            Event.find({ hostId: userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).select('title createdAt _id').lean(),
+            Ticket.find({ ownerId: userId }).sort({ purchaseDate: -1 }).skip(skip).limit(limit).populate('eventId', 'title').lean()
+        ]);
+
+        const mappedActivity = [
+            ...logins.map(item => ({
+                type: 'login',
+                title: 'Logged in',
+                details: `${item.deviceType || 'Unknown device'} (${item.os || 'Unknown OS'})`,
+                timestamp: item.createdAt,
+                id: item._id
+            })),
+            ...events.map(item => ({
+                type: 'event_created',
+                title: 'Created Event',
+                details: item.title,
+                timestamp: item.createdAt,
+                id: item._id
+            })),
+            ...tickets.map((item: any) => ({
+                type: 'ticket_purchased',
+                title: 'Registered for Event',
+                details: item.eventId?.title || 'Unknown Event',
+                timestamp: item.purchaseDate || item.createdAt,
+                id: item._id
+            }))
+        ];
+
+        // Sort combined results
+        const activity = mappedActivity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+        const hasMore = logins.length === limit || events.length === limit || tickets.length === limit;
+
+        res.json({
+            activity,
+            page,
+            hasMore
+        });
+    } catch (error: any) {
+        res.status(500).json({ message: 'Failed to fetch activity' });
+    }
+};
+
 // Update User Role
 export const updateUserRole = async (req: Request, res: Response) => {
     try {
@@ -373,6 +514,9 @@ export const impersonateUser = async (req: Request, res: Response) => {
             userAgent: req.headers['user-agent']
         });
 
+        // Create a Session for the user (impersonated)
+        const session = await createSession(targetUser._id.toString(), req, 'impersonate');
+
         // Generate a new token for the target user
         const token = jwt.sign(
             {
@@ -381,7 +525,8 @@ export const impersonateUser = async (req: Request, res: Response) => {
                 role: targetUser.role,
                 isImpersonated: true,
                 // @ts-ignore
-                adminId: req.user.id
+                adminId: req.user.id,
+                sessionId: session._id
             },
             process.env.JWT_SECRET || 'test_secret',
             { expiresIn: '2h' } // Shorter duration for impersonation sessions

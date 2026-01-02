@@ -221,6 +221,13 @@ const systemTemplates = {
     })
 };
 
+// Helper to replace placeholders like {{userName}} in custom templates
+const replacePlaceholders = (template: string, data: any) => {
+    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+        return data[key] !== undefined ? data[key] : match;
+    });
+};
+
 // Send system email using configured system email account
 export const sendSystemEmail = async (
     type: 'welcome' | 'passwordReset' | 'hostUpgrade' | 'suspension' | 'loginAlert',
@@ -266,12 +273,15 @@ export const sendSystemEmail = async (
         let emailContent: { subject: string; html: string };
 
         // Check for custom template first
+        // Note: SystemSettings schema defines emailTemplates as Strings currently, so we use default subjects.
         const customTemplate = settings.emailTemplates?.[type];
         if (customTemplate) {
             // Use custom template with placeholder replacement
+            const htmlContent = replacePlaceholders(customTemplate, templateData);
+
             emailContent = {
-                subject: customTemplate.subject || systemTemplates[type](templateData).subject,
-                html: customTemplate
+                subject: systemTemplates[type](templateData).subject,
+                html: htmlContent
             };
         } else {
             // Use default template
@@ -296,7 +306,8 @@ export const sendSystemEmail = async (
             hello: 'hello@maketicket.app',
             support: 'support@maketicket.app',
             info: 'info@maketicket.app',
-            security: 'security@maketicket.app'
+            security: 'security@maketicket.app',
+            'reset-password': 'reset-password@maketicket.app'
         };
 
         // Use configured sender, fallback to env var or hello@
@@ -306,7 +317,7 @@ export const sendSystemEmail = async (
 
         const fromName = settings.useCustomDomain && settings.customDomainName
             ? settings.customDomainName
-            : (settings.systemEmail.fromName || process.env.ZEPTOMAIL_FROM_NAME || platformName);
+            : (settings.systemEmail.fromName || "MakeTicket System");
 
         let emailSent = false;
         let usedProvider: 'zeptomail' | 'gmail' | 'system' = 'system';
@@ -379,6 +390,8 @@ export const sendSystemEmail = async (
                 `From: ${fromHeader}\r\n` +
                 `To: ${recipientEmail}\r\n` +
                 `Subject: ${encodedSubject}\r\n` +
+                `Importance: High\r\n` +
+                `X-Priority: 1\r\n` +
                 `MIME-Version: 1.0\r\n` +
                 `Content-Type: text/html; charset=utf-8\r\n\r\n` +
                 emailContent.html

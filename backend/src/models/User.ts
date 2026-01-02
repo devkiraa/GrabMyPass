@@ -39,10 +39,20 @@ const UserSchema = new mongoose.Schema({
     resetToken: { type: String },
     resetTokenExpiry: { type: Date },
 
+    // Password Reset Rate Limiting
+    resetRequestsCount: { type: Number, default: 0 },
+    resetRequestsDate: { type: Date, default: Date.now },
+    lastResetRequestAt: { type: Date },
+
     // Two-Factor Authentication
     twoFactorSecret: { type: String }, // Stored temporarily during setup, then finalized
     isTwoFactorEnabled: { type: Boolean, default: false },
-    twoFactorRecoveryCodes: [{ type: String }]
+    twoFactorRecoveryCodes: [{ type: String }],
+
+    // Login Tracking
+    lastLogin: { type: Date },
+    lastLoginIp: { type: String },
+    loginCount: { type: Number, default: 0 }
 }, { timestamps: true });
 
 export const User = mongoose.model('User', UserSchema);

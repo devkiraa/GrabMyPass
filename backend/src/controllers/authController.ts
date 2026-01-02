@@ -5,6 +5,7 @@ import { User } from '../models/User';
 import axios from 'axios';
 import crypto from 'crypto';
 
+import { SecurityEvent } from '../models/SecurityEvent';
 import { Session } from '../models/Session';
 
 // Helper to parse user agent
@@ -40,7 +41,8 @@ const parseUserAgent = (userAgent: string) => {
 };
 
 // helper to create session
-const createSession = async (userId: string, req: Request, loginMethod: 'email' | 'google' | 'impersonate' = 'email') => {
+// Create Session Helper
+export const createSession = async (userId: string, req: Request, loginMethod: 'email' | 'google' | 'impersonate' = 'email') => {
     const userAgent = req.headers['user-agent'] || 'Unknown';
 
     // Get IP address - check multiple sources
@@ -75,6 +77,15 @@ const createSession = async (userId: string, req: Request, loginMethod: 'email' 
         deviceType,
         loginMethod,
         expiresAt
+    });
+
+    // Update User Login Stats
+    await User.findByIdAndUpdate(userId, {
+        $set: {
+            lastLogin: new Date(),
+            lastLoginIp: ipAddress
+        },
+        $inc: { loginCount: 1 }
     });
 
     return session;
@@ -364,10 +375,29 @@ export const login = async (req: Request, res: Response) => {
         const { email, password } = req.body;
 
         let user = await User.findOne({ email });
-        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user) {
+            await SecurityEvent.create({
+                type: 'auth_failure',
+                severity: 'low',
+                ipAddress: req.ip || req.headers['x-forwarded-for'] || 'Unknown',
+                userAgent: req.headers['user-agent'],
+                details: { reason: 'user_not_found', emailAttempt: email }
+            });
+            return res.status(404).json({ message: 'User not found' });
+        }
 
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
-        if (!isPasswordCorrect) return res.status(400).json({ message: 'Invalid credentials' });
+        if (!isPasswordCorrect) {
+            await SecurityEvent.create({
+                type: 'auth_failure',
+                severity: 'medium',
+                userId: user._id,
+                ipAddress: req.ip || req.headers['x-forwarded-for'] || 'Unknown',
+                userAgent: req.headers['user-agent'],
+                details: { reason: 'invalid_password' }
+            });
+            return res.status(400).json({ message: 'Invalid credentials' });
+        }
 
         // Check if user is suspended
         // @ts-ignore
@@ -501,6 +531,40 @@ export const forgotPassword = async (req: Request, res: Response) => {
             });
         }
 
+        // Rate Limiting Logic
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+        // Ensure properties exist (handling old records)
+        if (!user.resetRequestsDate) user.resetRequestsDate = now;
+        if (!user.resetRequestsCount) user.resetRequestsCount = 0;
+
+        const userResetDate = new Date(user.resetRequestsDate);
+        const userResetDateStart = new Date(userResetDate.getFullYear(), userResetDate.getMonth(), userResetDate.getDate());
+
+        // Reset counter if it's a new day
+        if (userResetDateStart.getTime() < today.getTime()) {
+            user.resetRequestsCount = 0;
+            user.resetRequestsDate = now;
+        }
+
+        // Check Daily Limit (Max 2)
+        if (user.resetRequestsCount >= 2) {
+            return res.status(429).json({
+                message: 'You have reached the maximum number of password reset attempts for today. Please try again tomorrow.'
+            });
+        }
+
+        // Check Cooldown (1 Minute)
+        if (user.lastResetRequestAt) {
+            const timeDiff = now.getTime() - new Date(user.lastResetRequestAt).getTime();
+            if (timeDiff < 60 * 1000) { // 60 seconds
+                return res.status(429).json({
+                    message: 'Please wait at least 1 minute before requesting another password reset.'
+                });
+            }
+        }
+
         // Generate secure reset token
         const resetToken = crypto.randomBytes(32).toString('hex');
         const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
@@ -509,6 +573,11 @@ export const forgotPassword = async (req: Request, res: Response) => {
         const resetTokenExpiry = new Date(Date.now() + 30 * 60 * 1000);
 
         // Save hashed token to database
+        // Update Rate Limits
+        user.resetRequestsCount = (user.resetRequestsCount || 0) + 1;
+        user.lastResetRequestAt = now;
+        user.resetRequestsDate = now;
+
         user.resetToken = hashedToken;
         user.resetTokenExpiry = resetTokenExpiry;
         await user.save();

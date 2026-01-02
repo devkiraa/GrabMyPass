@@ -15,6 +15,9 @@ import {
     getLogBackupStatus,
     disconnectLogsDrive,
     getAllUsers,
+    getUserDetails,
+    getUserEvents,
+    getUserActivity,
     updateUserRole,
     toggleUserStatus,
     impersonateUser,
@@ -59,7 +62,8 @@ import {
     seedDefaultTemplates,
     // Security Actions
     forceLogoutAllUsers,
-    rotateApiKeys
+    rotateApiKeys,
+    getSecurityEvents
 } from '../controllers/adminController';
 
 export const adminRouter = express.Router();
@@ -92,6 +96,9 @@ adminRouter.delete('/logs/drive', disconnectLogsDrive);
 
 // User Management
 adminRouter.get('/users', getAllUsers);
+adminRouter.get('/users/:userId', getUserDetails);
+adminRouter.get('/users/:userId/events', getUserEvents);
+adminRouter.get('/users/:userId/activity', getUserActivity);
 adminRouter.patch('/users/:userId/role', updateUserRole);
 adminRouter.patch('/users/:userId/status', toggleUserStatus);
 adminRouter.post('/users/:userId/impersonate', impersonateUser);
@@ -144,6 +151,7 @@ adminRouter.patch('/email-templates/:templateId/toggle', toggleSystemTemplateSta
 adminRouter.delete('/email-templates/:templateId', deleteSystemEmailTemplate);
 
 // Security Actions
+adminRouter.get('/security/events', getSecurityEvents);
 adminRouter.post('/security/force-logout-all', forceLogoutAllUsers);
 adminRouter.post('/security/rotate-api-keys', rotateApiKeys);
 

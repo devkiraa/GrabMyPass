@@ -50,7 +50,12 @@ function CreateEventContent() {
         emailTemplateId: '', // Selected email template
         sendConfirmationEmail: true, // Send confirmation emails
         ticketTemplateId: '', // Selected ticket template
-        attachTicket: true // Attach ticket to email
+        attachTicket: true, // Attach ticket to email
+        // UPI Payment Configuration
+        upiId: '',
+        upiName: '',
+        verificationNote: '',
+        autoVerifyEnabled: false
     });
 
     useEffect(() => {
@@ -238,7 +243,11 @@ function CreateEventContent() {
                             emailTemplateId: draft.emailTemplateId || '',
                             sendConfirmationEmail: draft.sendConfirmationEmail !== false,
                             ticketTemplateId: draft.ticketTemplateId || '',
-                            attachTicket: draft.attachTicket !== false
+                            attachTicket: draft.attachTicket !== false,
+                            upiId: draft.paymentConfig?.upiId || '',
+                            upiName: draft.paymentConfig?.upiName || '',
+                            verificationNote: draft.paymentConfig?.verificationNote || '',
+                            autoVerifyEnabled: draft.paymentConfig?.autoVerifyEnabled || false
                         });
                         if (draft.formSchema) setQuestions(draft.formSchema);
                         if (draft.formHeaderImage) setFormHeaderImage(draft.formHeaderImage);
@@ -287,7 +296,18 @@ function CreateEventContent() {
                 attachTicket: formData.attachTicket,
                 formSchema: questions,
                 formHeaderImage: formHeaderImage,
-                status: 'draft'
+                status: 'draft',
+                // Add payment config if price > 0
+                ...(Number(formData.price) > 0 && {
+                    paymentConfig: {
+                        enabled: true,
+                        upiId: formData.upiId,
+                        upiName: formData.upiName,
+                        requirePaymentProof: true,
+                        autoVerifyEnabled: formData.autoVerifyEnabled,
+                        verificationNote: formData.verificationNote
+                    }
+                })
             };
 
             if (draftId) {
@@ -732,6 +752,77 @@ function CreateEventContent() {
                             </div>
                         </div>
                     </div>
+
+                    {/* UPI Payment Configuration Card - Only show if price > 0 */}
+                    {Number(formData.price) > 0 && !isAcceptPaymentsLocked && (
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="p-6 space-y-5">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                                        <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h3 className="font-semibold text-slate-900">UPI Payment Collection</h3>
+                                        <p className="text-sm text-slate-500">Configure your UPI ID to receive payments directly</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex gap-3">
+                                    <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                                    </svg>
+                                    <div className="text-sm text-blue-900">
+                                        <p className="font-medium mb-1">Attendees will pay you directly</p>
+                                        <p className="text-xs text-blue-700">We generate a UPI QR code for attendees. They scan and pay to your UPI ID. Upload payment proof for verification.</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="upiId" className="text-slate-700 font-medium">Your UPI ID *</Label>
+                                        <Input
+                                            id="upiId"
+                                            name="upiId"
+                                            value={formData.upiId || ''}
+                                            onChange={handleInputChange}
+                                            placeholder="username@paytm or 9876543210@ybl"
+                                            className="bg-white h-11 font-mono text-sm"
+                                        />
+                                        <p className="text-xs text-slate-500">e.g., yourname@paytm, 9876543210@ybl, yourname@oksbi</p>
+                                    </div>
+
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="upiName" className="text-slate-700 font-medium">Payee Name *</Label>
+                                        <Input
+                                            id="upiName"
+                                            name="upiName"
+                                            value={formData.upiName || ''}
+                                            onChange={handleInputChange}
+                                            placeholder="Your Name or Business Name"
+                                            className="bg-white h-11"
+                                        />
+                                        <p className="text-xs text-slate-500">Name that will appear on the payment QR code</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="verificationNote" className="text-slate-700 font-medium">Payment Instructions (Optional)</Label>
+                                    <textarea
+                                        id="verificationNote"
+                                        name="verificationNote"
+                                        value={formData.verificationNote || ''}
+                                        onChange={handleInputChange as any}
+                                        rows={2}
+                                        className="flex min-h-[60px] w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm ring-offset-white placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 resize-none"
+                                        placeholder="e.g., Please upload a clear screenshot showing the UTR/transaction ID"
+                                    />
+                                    <p className="text-xs text-slate-500">Additional notes for attendees about payment verification</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

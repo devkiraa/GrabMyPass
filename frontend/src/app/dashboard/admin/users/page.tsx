@@ -19,7 +19,8 @@ import {
     Download,
     Mail,
     Clock,
-    Monitor
+    Monitor,
+    User as UserIcon
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -56,6 +57,7 @@ interface User {
     createdAt: string;
     avatar?: string;
     plan?: string;
+    lastLogin?: string; // timestamp
 }
 
 type EnterpriseQuotaForm = {
@@ -516,6 +518,7 @@ export default function UserManagementPage() {
                                     <th className="px-6 py-4 font-medium">User</th>
                                     <th className="px-6 py-4 font-medium">Role</th>
                                     <th className="px-6 py-4 font-medium">Plan</th>
+                                    <th className="px-6 py-4 font-medium">Last Login</th>
                                     <th className="px-6 py-4 font-medium">Status</th>
                                     <th className="px-6 py-4 font-medium">Joined</th>
                                     <th className="px-6 py-4 font-medium text-right">Actions</th>
@@ -542,7 +545,10 @@ export default function UserManagementPage() {
                                     users.map((user) => (
                                         <tr key={user._id} className="hover:bg-slate-50/50 transition-colors">
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
+                                                <div
+                                                    className="flex items-center gap-3 cursor-pointer"
+                                                    onClick={() => router.push(`/dashboard/admin/users/${user._id}`)}
+                                                >
                                                     <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold uppercase shrink-0">
                                                         {user.avatar ? (
                                                             <img src={user.avatar} className="h-full w-full rounded-full object-cover" alt="" />
@@ -551,7 +557,7 @@ export default function UserManagementPage() {
                                                         )}
                                                     </div>
                                                     <div>
-                                                        <div className="font-semibold text-slate-900">{user.name || 'Unnamed User'}</div>
+                                                        <div className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors">{user.name || 'Unnamed User'}</div>
                                                         <div className="text-xs text-slate-500">{user.email}</div>
                                                     </div>
                                                 </div>
@@ -575,6 +581,19 @@ export default function UserManagementPage() {
                                                     {user.plan || 'free'}
                                                 </span>
                                             </td>
+                                            <td className="px-6 py-4 text-slate-500 text-xs">
+                                                {user.lastLogin ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                        {new Date(user.lastLogin).toLocaleDateString()}
+                                                        <span className="text-slate-400">
+                                                            {new Date(user.lastLogin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-slate-400 italic">Never</span>
+                                                )}
+                                            </td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
                                                     ${user.status === 'active' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}
@@ -595,6 +614,9 @@ export default function UserManagementPage() {
                                                     <DropdownMenuContent align="end" className="w-48">
                                                         <DropdownMenuLabel>User Actions</DropdownMenuLabel>
                                                         <DropdownMenuSeparator />
+                                                        <DropdownMenuItem onClick={() => router.push(`/dashboard/admin/users/${user._id}`)}>
+                                                            <UserIcon className="mr-2 h-4 w-4" /> View Details
+                                                        </DropdownMenuItem>
                                                         <DropdownMenuItem onClick={() => {
                                                             setSelectedUser(user);
                                                             setNewRole(user.role);

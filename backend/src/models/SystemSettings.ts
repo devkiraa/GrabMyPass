@@ -34,11 +34,11 @@ const SystemSettingsSchema = new mongoose.Schema({
 
     // Sender Configuration - which sender address for each email type
     emailSenderConfig: {
-        welcomeEmail: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'hello' },
-        passwordReset: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'noreply' },
-        hostUpgradeConfirmation: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'hello' },
-        suspensionNotice: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'support' },
-        loginAlert: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security'], default: 'security' }
+        welcomeEmail: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security', 'reset-password'], default: 'hello' },
+        passwordReset: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security', 'reset-password'], default: 'reset-password' },
+        hostUpgradeConfirmation: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security', 'reset-password'], default: 'hello' },
+        suspensionNotice: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security', 'reset-password'], default: 'support' },
+        loginAlert: { type: String, enum: ['noreply', 'hello', 'support', 'info', 'security', 'reset-password'], default: 'security' }
     },
 
     // Custom Domain Configuration

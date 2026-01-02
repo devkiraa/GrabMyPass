@@ -24,7 +24,8 @@ import {
     Monitor,
     Wallet,
     Server,
-    Key
+    Key,
+    MessageSquare
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -371,6 +372,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         <Contact className="mr-3 h-5 w-5" />
                                         Contacts
                                     </Button>
+                                    <Button
+                                        variant="ghost"
+                                        className={`w-full justify-start font-medium ${pathname === '/dashboard/payments' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                        onClick={() => router.push('/dashboard/payments')}
+                                    >
+                                        <Wallet className="mr-3 h-5 w-5" />
+                                        Payment Verification
+                                    </Button>
 
                                     <div className="pt-4 mt-4 border-t border-slate-100">
                                         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
@@ -414,6 +423,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 </Button>
                             )}
 
+                            <Button
+                                variant="ghost"
+                                className={`w-full justify-start font-medium ${pathname === '/dashboard/support' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                onClick={() => router.push('/dashboard/support')}
+                            >
+                                <MessageSquare className="mr-3 h-5 w-5" />
+                                Support
+                            </Button>
                             <Button
                                 variant="ghost"
                                 className={`w-full justify-start font-medium ${pathname === '/dashboard/settings' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
@@ -471,6 +488,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/logs' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/logs'); setMobileMenuOpen(false); }}>
                                         <FileText className="mr-3 h-5 w-5" /> System Logs
                                     </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/sessions' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/sessions'); setMobileMenuOpen(false); }}>
+                                        <Monitor className="mr-3 h-5 w-5" /> Sessions
+                                    </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/email' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/email'); setMobileMenuOpen(false); }}>
+                                        <Mail className="mr-3 h-5 w-5" /> System Email
+                                    </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/email-logs' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/email-logs'); setMobileMenuOpen(false); }}>
+                                        <Mail className="mr-3 h-5 w-5" /> Email Logs
+                                    </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/status' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/status'); setMobileMenuOpen(false); }}>
+                                        <Server className="mr-3 h-5 w-5" /> Server Status
+                                    </Button>
                                     <div className="pt-4 mt-4 border-t border-slate-800">
                                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">Templates</span>
                                     </div>
@@ -479,6 +508,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     </Button>
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/ticket-templates' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/ticket-templates'); setMobileMenuOpen(false); }}>
                                         <CreditCard className="mr-3 h-5 w-5" /> Ticket Templates
+                                    </Button>
+                                    <div className="pt-4 mt-4 border-t border-slate-800">
+                                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">Billing</span>
+                                    </div>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/admin/plans' ? 'bg-purple-900/50 text-purple-300' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`} onClick={() => { router.push('/dashboard/admin/plans'); setMobileMenuOpen(false); }}>
+                                        <CreditCard className="mr-3 h-5 w-5" /> Plan Limits
                                     </Button>
                                     <div className="pt-4 mt-4 border-t border-slate-800">
                                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-3">System</span>
@@ -512,11 +547,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                             </Button>
                                         );
                                     })}
+
+                                    {/* Coordinator Section */}
+                                    {hasCoordinatorEvents && (
+                                        <>
+                                            <div className="pt-4 mt-4 border-t border-slate-100">
+                                                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
+                                                    Coordinating
+                                                </span>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                className={`w-full justify-start font-medium ${pathname === '/dashboard/coordinator'
+                                                    ? 'bg-purple-50 text-purple-700'
+                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                                                    }`}
+                                                onClick={() => { router.push('/dashboard/coordinator'); setMobileMenuOpen(false); }}
+                                            >
+                                                <QrCode className="mr-3 h-5 w-5" />
+                                                Co-Events
+                                                <span className="ml-auto bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                                                    {coordinatorCount}
+                                                </span>
+                                            </Button>
+                                        </>
+                                    )}
                                     <div className="pt-4 mt-4 border-t border-slate-100">
                                         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">Communications</span>
                                     </div>
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/emails' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/settings/emails'); setMobileMenuOpen(false); }}>
                                         <Mail className="mr-3 h-5 w-5" /> Email Accounts
+                                    </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/email-templates' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/settings/email-templates'); setMobileMenuOpen(false); }}>
+                                        <FileText className="mr-3 h-5 w-5" /> Email Templates
+                                    </Button>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/settings/ticket-templates' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/settings/ticket-templates'); setMobileMenuOpen(false); }}>
+                                        <CreditCard className="mr-3 h-5 w-5" /> Ticket Designer
                                     </Button>
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/contacts' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/contacts'); setMobileMenuOpen(false); }}>
                                         <Contact className="mr-3 h-5 w-5" /> Contacts

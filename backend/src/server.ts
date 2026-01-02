@@ -115,6 +115,7 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' })); // Increased limit for base64 image uploads
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cookieParser());
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/maketicket')
@@ -464,6 +465,14 @@ app.use('/api/google-sheets', googleSheetsRouter);
 // Payment Integration (Razorpay)
 import paymentRouter from './routes/payment';
 app.use('/api/payment', paymentRouter);
+
+// UPI Payment Verification (separate from Razorpay billing)
+import upiPaymentRouter from './routes/upiPayment';
+app.use('/api/payment-verification', upiPaymentRouter);
+
+// Support Tickets
+import supportRouter from './routes/support';
+app.use('/api/support', supportRouter);
 
 // External API (v1) - Public API with API key authentication
 import externalRouter from './routes/external';

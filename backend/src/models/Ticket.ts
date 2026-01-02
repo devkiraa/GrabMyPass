@@ -21,7 +21,25 @@ const TicketSchema = new mongoose.Schema({
     // Approval flag (false = pending approval, true = approved)
     approved: { type: Boolean, default: true },
     checkedInAt: { type: Date },
-    checkedInBy: { type: String } // Helper info
+    checkedInBy: { type: String }, // Helper info
+
+    // Payment Proof & Verification
+    paymentProof: {
+        screenshotUrl: { type: String }, // URL to uploaded payment screenshot
+        utr: { type: String }, // UPI Transaction Reference Number
+        amount: { type: Number }, // Amount claimed by user
+        uploadedAt: { type: Date },
+        verificationStatus: {
+            type: String,
+            enum: ['pending', 'verified', 'rejected', 'not_required'],
+            default: 'not_required'
+        },
+        verifiedAt: { type: Date },
+        verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Admin/Host who verified
+        verificationMethod: { type: String, enum: ['manual', 'auto', 'none'], default: 'none' },
+        rejectionReason: { type: String },
+        autoVerifyResponse: { type: mongoose.Schema.Types.Mixed } // Store Cloudflare Worker response
+    }
 }, { timestamps: true });
 
 export const Ticket = mongoose.model('Ticket', TicketSchema);
