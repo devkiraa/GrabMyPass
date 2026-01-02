@@ -146,3 +146,20 @@ adminRouter.delete('/email-templates/:templateId', deleteSystemEmailTemplate);
 // Security Actions
 adminRouter.post('/security/force-logout-all', forceLogoutAllUsers);
 adminRouter.post('/security/rotate-api-keys', rotateApiKeys);
+
+// API Key Management
+import {
+    getAllApiKeys,
+    createApiKey,
+    updateApiKey,
+    revokeApiKey,
+    deleteApiKey,
+    getApiKeyStats
+} from '../controllers/adminController';
+
+adminRouter.get('/api-keys', getAllApiKeys);
+adminRouter.post('/api-keys', createApiKey);
+adminRouter.get('/api-keys/stats', getApiKeyStats);
+adminRouter.patch('/api-keys/:keyId', updateApiKey);
+adminRouter.post('/api-keys/:keyId/revoke', revokeApiKey);
+adminRouter.delete('/api-keys/:keyId', deleteApiKey);

@@ -193,3 +193,20 @@ import { getApplePass, getGoogleWalletLink } from '../controllers/walletControll
 
 apiRouter.get('/wallet/apple/:ticketId', getApplePass);
 apiRouter.get('/wallet/google/:ticketId', getGoogleWalletLink);
+
+// User API Key Management (for external API access)
+import {
+    getUserApiKeys,
+    createUserApiKey,
+    updateUserApiKey,
+    regenerateUserApiKey,
+    deleteUserApiKey,
+    getUserApiKeyUsage
+} from '../controllers/apiKeyController';
+
+apiRouter.get('/api-keys', verifyToken, getUserApiKeys);
+apiRouter.post('/api-keys', verifyToken, createUserApiKey);
+apiRouter.get('/api-keys/usage', verifyToken, getUserApiKeyUsage);
+apiRouter.patch('/api-keys/:keyId', verifyToken, updateUserApiKey);
+apiRouter.post('/api-keys/:keyId/regenerate', verifyToken, regenerateUserApiKey);
+apiRouter.delete('/api-keys/:keyId', verifyToken, deleteUserApiKey);

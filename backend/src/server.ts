@@ -213,7 +213,7 @@ app.get('/', (req, res) => {
 
     // Check Accept header for JSON or HTML response
     const acceptHeader = req.headers.accept || '';
-    
+
     if (acceptHeader.includes('text/html')) {
         // Return a nice HTML page for browser visits
         res.send(`
@@ -465,13 +465,17 @@ app.use('/api/google-sheets', googleSheetsRouter);
 import paymentRouter from './routes/payment';
 app.use('/api/payment', paymentRouter);
 
+// External API (v1) - Public API with API key authentication
+import externalRouter from './routes/external';
+app.use('/api/v1', externalRouter);
+
 // Import keep-alive status tracker
 import { updateKeepAliveStatus } from './controllers/adminController';
 
 // Health check endpoint for keep-alive
 app.get('/health', (req, res) => {
-    res.status(200).json({ 
-        status: 'healthy', 
+    res.status(200).json({
+        status: 'healthy',
         timestamp: new Date().toISOString(),
         uptime: process.uptime()
     });
@@ -481,36 +485,36 @@ app.get('/health', (req, res) => {
 const startKeepAlive = () => {
     const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${PORT}`;
     const PING_INTERVAL = 10 * 60 * 1000; // 10 minutes
-    
+
     // Only run in production to save resources locally
     if (process.env.NODE_ENV !== 'production') {
         logger.debug('keepalive.disabled', { reason: 'development_mode' });
         return;
     }
-    
+
     const ping = async () => {
         try {
             const response = await axios.get(`${BACKEND_URL}/health`);
             updateKeepAliveStatus(true);
-            logger.debug('keepalive.ping_success', { 
-                status: response.data.status, 
-                uptime_seconds: Math.floor(response.data.uptime) 
+            logger.debug('keepalive.ping_success', {
+                status: response.data.status,
+                uptime_seconds: Math.floor(response.data.uptime)
             });
         } catch (error: any) {
             updateKeepAliveStatus(false);
             logger.error('keepalive.ping_failed', { error: error.message }, error);
         }
     };
-    
+
     // Initial ping after 1 minute
     setTimeout(ping, 60 * 1000);
-    
+
     // Then ping every 10 minutes
     setInterval(ping, PING_INTERVAL);
-    
-    logger.info('keepalive.started', { 
-        target_url: `${BACKEND_URL}/health`, 
-        interval_minutes: PING_INTERVAL / 60000 
+
+    logger.info('keepalive.started', {
+        target_url: `${BACKEND_URL}/health`,
+        interval_minutes: PING_INTERVAL / 60000
     });
 };
 
@@ -535,7 +539,7 @@ app.listen(PORT, async () => {
             logger.error('server.banner_failed', { error: err.message });
             return;
         }
-        
+
         // Only show ASCII banner in development
         if (process.env.NODE_ENV !== 'production') {
             console.log(data);
@@ -551,7 +555,7 @@ Your public IP address is: ${publicIp}
 🔗 Local URL:  http://localhost:${PORT}
 `);
         }
-        
+
         // Structured server startup log
         logger.info('server.started', {
             port: PORT,
@@ -561,10 +565,10 @@ Your public IP address is: ${publicIp}
             node_version: process.version,
             platform: process.platform,
         });
-        
+
         // Schedule daily log backup to Google Drive
         scheduleDailyBackup();
-        
+
         // Start keep-alive to prevent Render free tier spin-down
         startKeepAlive();
     });

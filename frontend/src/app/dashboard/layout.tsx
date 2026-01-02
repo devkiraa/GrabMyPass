@@ -23,7 +23,8 @@ import {
     Ghost,
     Monitor,
     Wallet,
-    Server
+    Server,
+    Key
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -370,6 +371,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                         <Contact className="mr-3 h-5 w-5" />
                                         Contacts
                                     </Button>
+
+                                    <div className="pt-4 mt-4 border-t border-slate-100">
+                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">
+                                            Developer
+                                        </span>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        className={`w-full justify-start font-medium ${pathname === '/dashboard/api-keys' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`}
+                                        onClick={() => router.push('/dashboard/api-keys')}
+                                    >
+                                        <Key className="mr-3 h-5 w-5" />
+                                        API Keys
+                                    </Button>
                                 </>
                             )}
                         </nav>
@@ -505,6 +520,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                     </Button>
                                     <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/contacts' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/contacts'); setMobileMenuOpen(false); }}>
                                         <Contact className="mr-3 h-5 w-5" /> Contacts
+                                    </Button>
+                                    <div className="pt-4 mt-4 border-t border-slate-100">
+                                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-3">Developer</span>
+                                    </div>
+                                    <Button variant="ghost" className={`w-full justify-start font-medium ${pathname === '/dashboard/api-keys' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'}`} onClick={() => { router.push('/dashboard/api-keys'); setMobileMenuOpen(false); }}>
+                                        <Key className="mr-3 h-5 w-5" /> API Keys
                                     </Button>
                                 </nav>
                                 <div className="p-4 border-t border-slate-100 space-y-1">

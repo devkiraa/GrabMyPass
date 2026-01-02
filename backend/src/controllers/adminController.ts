@@ -3208,3 +3208,297 @@ export const rotateApiKeys = async (req: Request, res: Response) => {
         res.status(500).json({ message: 'Failed to rotate API keys' });
     }
 };
+
+// ==================== API KEY MANAGEMENT ====================
+
+import { ApiKey } from '../models/ApiKey';
+
+/**
+ * Get all API keys (admin)
+ */
+export const getAllApiKeys = async (req: Request, res: Response) => {
+    try {
+        const { page = 1, limit = 20, active } = req.query;
+        const pageNum = parseInt(page as string) || 1;
+        const limitNum = Math.min(parseInt(limit as string) || 20, 100);
+        const skip = (pageNum - 1) * limitNum;
+
+        const query: any = {};
+        if (active !== undefined) {
+            query.isActive = active === 'true';
+        }
+
+        const [apiKeys, total] = await Promise.all([
+            ApiKey.find(query)
+                .populate('ownerId', 'name email')
+                .select('-hashedKey')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNum),
+            ApiKey.countDocuments(query)
+        ]);
+
+        res.json({
+            apiKeys: apiKeys.map(key => ({
+                id: key._id,
+                name: key.name,
+                keyPrefix: key.keyPrefix,
+                owner: key.ownerId,
+                permissions: key.permissions,
+                rateLimit: key.rateLimit,
+                isActive: key.isActive,
+                usageCount: key.usageCount,
+                lastUsedAt: key.lastUsedAt,
+                expiresAt: key.expiresAt,
+                createdAt: key.createdAt
+            })),
+            pagination: {
+                page: pageNum,
+                limit: limitNum,
+                total,
+                pages: Math.ceil(total / limitNum)
+            }
+        });
+    } catch (error: any) {
+        logger.error('admin.get_api_keys_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to fetch API keys' });
+    }
+};
+
+/**
+ * Create a new API key
+ */
+export const createApiKey = async (req: Request, res: Response) => {
+    try {
+        const { name, permissions, rateLimit, expiresAt, ipWhitelist } = req.body;
+        // @ts-ignore
+        const adminId = req.user?.id;
+
+        if (!name) {
+            return res.status(400).json({ message: 'API key name is required' });
+        }
+
+        // Generate key
+        const { key, prefix, hash } = (ApiKey as any).generateKey();
+
+        const apiKey = await ApiKey.create({
+            name,
+            keyPrefix: prefix,
+            hashedKey: hash,
+            ownerId: adminId,
+            ownerType: 'user',
+            permissions: permissions || ['read:events', 'read:registrations', 'read:analytics'],
+            rateLimit: rateLimit || 60,
+            expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+            ipWhitelist: ipWhitelist || []
+        });
+
+        // Audit log
+        await AuditLog.create({
+            adminId,
+            action: 'CREATE_API_KEY',
+            details: {
+                keyId: apiKey._id,
+                keyPrefix: prefix,
+                name
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        logger.info('admin.api_key_created', { keyPrefix: prefix, name });
+
+        res.status(201).json({
+            message: 'API key created successfully',
+            apiKey: {
+                id: apiKey._id,
+                name: apiKey.name,
+                key: key, // Only shown once!
+                keyPrefix: prefix,
+                permissions: apiKey.permissions,
+                rateLimit: apiKey.rateLimit,
+                expiresAt: apiKey.expiresAt,
+                createdAt: apiKey.createdAt
+            },
+            warning: 'Save this API key securely. It will not be shown again!'
+        });
+    } catch (error: any) {
+        logger.error('admin.create_api_key_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to create API key' });
+    }
+};
+
+/**
+ * Update an API key
+ */
+export const updateApiKey = async (req: Request, res: Response) => {
+    try {
+        const { keyId } = req.params;
+        const { name, permissions, rateLimit, isActive, expiresAt, ipWhitelist } = req.body;
+        // @ts-ignore
+        const adminId = req.user?.id;
+
+        const apiKey = await ApiKey.findById(keyId);
+        if (!apiKey) {
+            return res.status(404).json({ message: 'API key not found' });
+        }
+
+        // Update fields
+        if (name !== undefined) apiKey.name = name;
+        if (permissions !== undefined) apiKey.permissions = permissions;
+        if (rateLimit !== undefined) apiKey.rateLimit = rateLimit;
+        if (isActive !== undefined) apiKey.isActive = isActive;
+        if (expiresAt !== undefined) apiKey.expiresAt = expiresAt ? new Date(expiresAt) : undefined;
+        if (ipWhitelist !== undefined) apiKey.ipWhitelist = ipWhitelist;
+
+        await apiKey.save();
+
+        // Audit log
+        await AuditLog.create({
+            adminId,
+            action: 'UPDATE_API_KEY',
+            details: {
+                keyId: apiKey._id,
+                keyPrefix: apiKey.keyPrefix,
+                updatedFields: Object.keys(req.body)
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        res.json({
+            message: 'API key updated successfully',
+            apiKey: {
+                id: apiKey._id,
+                name: apiKey.name,
+                keyPrefix: apiKey.keyPrefix,
+                permissions: apiKey.permissions,
+                rateLimit: apiKey.rateLimit,
+                isActive: apiKey.isActive,
+                expiresAt: apiKey.expiresAt,
+                updatedAt: apiKey.updatedAt
+            }
+        });
+    } catch (error: any) {
+        logger.error('admin.update_api_key_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to update API key' });
+    }
+};
+
+/**
+ * Revoke (deactivate) an API key
+ */
+export const revokeApiKey = async (req: Request, res: Response) => {
+    try {
+        const { keyId } = req.params;
+        // @ts-ignore
+        const adminId = req.user?.id;
+
+        const apiKey = await ApiKey.findById(keyId);
+        if (!apiKey) {
+            return res.status(404).json({ message: 'API key not found' });
+        }
+
+        apiKey.isActive = false;
+        await apiKey.save();
+
+        // Audit log
+        await AuditLog.create({
+            adminId,
+            action: 'REVOKE_API_KEY',
+            details: {
+                keyId: apiKey._id,
+                keyPrefix: apiKey.keyPrefix,
+                name: apiKey.name
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        logger.warn('admin.api_key_revoked', { keyPrefix: apiKey.keyPrefix });
+
+        res.json({ message: 'API key revoked successfully' });
+    } catch (error: any) {
+        logger.error('admin.revoke_api_key_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to revoke API key' });
+    }
+};
+
+/**
+ * Delete an API key permanently
+ */
+export const deleteApiKey = async (req: Request, res: Response) => {
+    try {
+        const { keyId } = req.params;
+        // @ts-ignore
+        const adminId = req.user?.id;
+
+        const apiKey = await ApiKey.findById(keyId);
+        if (!apiKey) {
+            return res.status(404).json({ message: 'API key not found' });
+        }
+
+        const keyPrefix = apiKey.keyPrefix;
+        const keyName = apiKey.name;
+
+        await ApiKey.findByIdAndDelete(keyId);
+
+        // Audit log
+        await AuditLog.create({
+            adminId,
+            action: 'DELETE_API_KEY',
+            details: {
+                keyId,
+                keyPrefix,
+                name: keyName
+            },
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent']
+        });
+
+        logger.warn('admin.api_key_deleted', { keyPrefix, keyName });
+
+        res.json({ message: 'API key deleted successfully' });
+    } catch (error: any) {
+        logger.error('admin.delete_api_key_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to delete API key' });
+    }
+};
+
+/**
+ * Get API key usage stats
+ */
+export const getApiKeyStats = async (req: Request, res: Response) => {
+    try {
+        const stats = await ApiKey.aggregate([
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: 1 },
+                    active: { $sum: { $cond: ['$isActive', 1, 0] } },
+                    inactive: { $sum: { $cond: ['$isActive', 0, 1] } },
+                    totalUsage: { $sum: '$usageCount' }
+                }
+            }
+        ]);
+
+        const recentlyUsed = await ApiKey.find({ lastUsedAt: { $exists: true } })
+            .sort({ lastUsedAt: -1 })
+            .limit(5)
+            .select('name keyPrefix lastUsedAt usageCount');
+
+        const topByUsage = await ApiKey.find()
+            .sort({ usageCount: -1 })
+            .limit(5)
+            .select('name keyPrefix usageCount');
+
+        res.json({
+            overview: stats[0] || { total: 0, active: 0, inactive: 0, totalUsage: 0 },
+            recentlyUsed,
+            topByUsage
+        });
+    } catch (error: any) {
+        logger.error('admin.api_key_stats_failed', { error: error.message });
+        res.status(500).json({ message: 'Failed to fetch API key stats' });
+    }
+};
