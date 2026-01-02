@@ -36,21 +36,19 @@ import {
     Italic,
     Image,
     Settings,
-    Upload
+    Upload,
+    Video,
+    FileText,
+    Heading,
+    ImagePlus
 } from 'lucide-react';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePlanSummary } from '@/hooks/use-plan-summary';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
+import { useGooglePicker } from '@/hooks/use-google-picker';
 
 interface FormItem {
     id: string;
-    itemType: 'question' | 'section';
+    itemType: 'question' | 'section' | 'content'; // Added 'content' for non-question blocks
     // Question properties
     type?: string;
     label: string;
@@ -60,6 +58,11 @@ interface FormItem {
     options?: string[];
     // Section properties (for section type)
     sectionDescription?: string;
+    // Content block properties (for content type like title, image, video)
+    contentType?: 'title' | 'description' | 'image' | 'video';
+    contentText?: string;  // For title/description blocks
+    contentUrl?: string;   // For image/video URLs
+    contentAlt?: string;   // Alt text for images
     // Validation properties
     validation?: {
         minLength?: number;
@@ -69,7 +72,7 @@ interface FormItem {
         min?: number;
         max?: number;
     };
-    // Rich content
+    // Rich content for questions
     hasImage?: boolean;
     imageUrl?: string;
     // File upload settings
@@ -78,15 +81,6 @@ interface FormItem {
         maxSizeMB?: number;
     };
 }
-
-interface GoogleForm {
-    id: string;
-    name: string;
-    createdTime: string;
-    modifiedTime: string;
-    webViewLink: string;
-}
-
 interface FormBuilderProps {
     questions: FormItem[];
     onChange: (questions: FormItem[]) => void;
@@ -111,28 +105,31 @@ const FIELD_TYPES = [
     { value: 'file', label: 'File upload', icon: Upload },
 ];
 
+// Content block types (non-question elements like in Google Forms)
+const CONTENT_TYPES = [
+    { value: 'title', label: 'Title & Description', icon: Heading },
+    { value: 'image', label: 'Image', icon: ImagePlus },
+    { value: 'video', label: 'Video', icon: Video },
+];
+
 export function FormBuilder({ questions, onChange, draftId, headerImage, onHeaderImageChange }: FormBuilderProps) {
     const { summary: planSummary } = usePlanSummary();
     const isGoogleFormsLocked = !!planSummary && planSummary.features?.googleFormsIntegration === false;
 
     const [activeItem, setActiveItem] = useState<string | null>(null);
 
-    // Google Forms state
     const [googleFormsConnected, setGoogleFormsConnected] = useState(false);
-    const [hasDriveAccess, setHasDriveAccess] = useState(false);
-    const [googleForms, setGoogleForms] = useState<GoogleForm[]>([]);
-    const [selectedGoogleForm, setSelectedGoogleForm] = useState<string>('');
-    const [loadingForms, setLoadingForms] = useState(false);
     const [importing, setImporting] = useState(false);
     const [checkingAccess, setCheckingAccess] = useState(true);
-    
+
     // Header image upload
     const headerImageInputRef = useRef<HTMLInputElement>(null);
 
     // URL-based import
-    const [importMode, setImportMode] = useState<'url' | 'browse'>('url');
+    const [importMode, setImportMode] = useState<'url' | 'picker'>('url');
     const [formUrl, setFormUrl] = useState('');
     const [urlError, setUrlError] = useState('');
+    const [pickerError, setPickerError] = useState<string | null>(null);
 
     // Check Google Forms access on mount (only if feature is available)
     useEffect(() => {
@@ -166,11 +163,6 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
             if (res.ok) {
                 const data = await res.json();
                 setGoogleFormsConnected(data.hasAccess || data.formsScope);
-                setHasDriveAccess(data.hasDriveAccess || false);
-                // Only fetch forms list if we have drive access
-                if (data.hasDriveAccess) {
-                    fetchGoogleForms();
-                }
             }
         } catch (error) {
             console.error('Failed to check Google Forms access', error);
@@ -211,60 +203,48 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
                 }
             );
             setGoogleFormsConnected(false);
-            setGoogleForms([]);
-            setSelectedGoogleForm('');
         } catch (error) {
             console.error('Failed to disconnect', error);
         }
     };
 
-    const fetchGoogleForms = async () => {
-        const token = localStorage.getItem('auth_token');
-        setLoadingForms(true);
-        try {
-            const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/list`,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            if (res.ok) {
-                const data = await res.json();
-                setGoogleForms(data.forms || []);
-            }
-        } catch (error) {
-            console.error('Failed to fetch Google Forms', error);
-        } finally {
-            setLoadingForms(false);
-        }
-    };
-
-    const importGoogleForm = async () => {
-        if (!selectedGoogleForm) return;
-
+    // Google Picker callback - import the selected form
+    const handleFormPicked = useCallback(async (formId: string, formName: string) => {
         const token = localStorage.getItem('auth_token');
         setImporting(true);
+        setPickerError(null);
         try {
             const res = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/form/${selectedGoogleForm}`,
+                `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/form/${formId}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             if (res.ok) {
                 const data = await res.json();
                 const importedQuestions = data.questions;
 
-                // Set header image separately if present
+                // Set header image if present (only works for inline images, not theme headers)
                 if (data.bannerImage && onHeaderImageChange) {
                     onHeaderImageChange(data.bannerImage);
                 }
 
                 onChange(importedQuestions);
-                setSelectedGoogleForm('');
+            } else {
+                const error = await res.json();
+                setPickerError(error.message || 'Failed to import form');
             }
         } catch (error) {
             console.error('Failed to import Google Form', error);
+            setPickerError('Failed to import form. Please try again.');
         } finally {
             setImporting(false);
         }
-    };
+    }, [onChange, onHeaderImageChange]);
+
+    // Google Picker hook
+    const { openPicker, loading: pickerLoading, error: googlePickerError, pickerLoaded } = useGooglePicker({
+        onFilePicked: handleFormPicked,
+        mimeTypes: ['application/vnd.google-apps.form']
+    });
 
     // Extract form ID from Google Form URL
     const extractFormId = (url: string): string | null => {
@@ -342,7 +322,7 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx?.drawImage(img, 0, 0, width, height);
-                
+
                 const resizedImage = canvas.toDataURL('image/jpeg', 0.8);
                 onHeaderImageChange(resizedImage);
             };
@@ -392,6 +372,32 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
             onChange([...questions, newSection]);
         }
         setActiveItem(newSection.id);
+    };
+
+    // Add a new content block (title, image, video)
+    const addContentBlock = (contentType: 'title' | 'image' | 'video', afterId?: string) => {
+        const defaultLabel = contentType === 'title' ? 'Title Block' :
+            contentType === 'image' ? 'Image' : 'Video';
+
+        const newContent: FormItem = {
+            id: `content-${Date.now()}`,
+            itemType: 'content',
+            label: defaultLabel,
+            contentType: contentType,
+            contentText: contentType === 'title' ? 'Add a title and description' : '',
+            contentUrl: '',
+            description: contentType === 'title' ? 'Description text goes here' : '',
+        };
+
+        if (afterId) {
+            const index = questions.findIndex(q => q.id === afterId);
+            const newQuestions = [...questions];
+            newQuestions.splice(index + 1, 0, newContent);
+            onChange(newQuestions);
+        } else {
+            onChange([...questions, newContent]);
+        }
+        setActiveItem(newContent.id);
     };
 
     const updateItem = (id: string, field: keyof FormItem, value: any) => {
@@ -464,8 +470,13 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
                     <div>
                         <h2 className="text-xl font-semibold text-slate-900">Registration Form</h2>
                         <p className="text-sm text-slate-500">
-                            {questions.filter(q => q.itemType === 'question').length} questions, {' '}
-                            {questions.filter(q => q.itemType === 'section').length} sections
+                            {questions.filter(q => q.itemType === 'question').length} questions
+                            {questions.filter(q => q.itemType === 'section').length > 0 && (
+                                <>, {questions.filter(q => q.itemType === 'section').length} sections</>
+                            )}
+                            {questions.filter(q => q.itemType === 'content').length > 0 && (
+                                <>, {questions.filter(q => q.itemType === 'content').length} content blocks</>
+                            )}
                         </p>
                     </div>
                 </div>
@@ -486,9 +497,9 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
                         {headerImage ? (
                             <div className="space-y-3">
                                 <div className="relative rounded-lg overflow-hidden border border-purple-200">
-                                    <img 
-                                        src={headerImage} 
-                                        alt="Form header" 
+                                    <img
+                                        src={headerImage}
+                                        alt="Form header"
                                         className="w-full h-32 object-cover"
                                     />
                                     <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
@@ -561,187 +572,142 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
                     </div>
                 ) : (
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="p-2 bg-white rounded-lg shadow-sm">
-                            <FileSpreadsheet className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                            <h3 className="font-medium text-slate-900">Import from Google Forms</h3>
-                            <p className="text-xs text-slate-500">Paste a form URL or browse your Google Drive</p>
-                        </div>
-                    </div>
-
-                    {checkingAccess ? (
-                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                            <RefreshCw className="w-4 h-4 animate-spin" />
-                            Checking connection...
-                        </div>
-                    ) : !googleFormsConnected ? (
-                        <Button
-                            onClick={connectGoogleForms}
-                            className="bg-blue-600 hover:bg-blue-700 text-white border-transparent shadow-sm transition-all"
-                        >
-                            <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
-                                <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                                <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                                <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                                <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                            </svg>
-                            Connect Google Account
-                        </Button>
-                    ) : (
-                        <div className="space-y-3">
-                            {/* Tab Buttons */}
-                            <div className="flex gap-1 p-1 bg-white/60 rounded-lg">
-                                <button
-                                    onClick={() => setImportMode('url')}
-                                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${importMode === 'url'
-                                        ? 'bg-white text-blue-700 shadow-sm'
-                                        : 'text-slate-600 hover:text-slate-900'
-                                        }`}
-                                >
-                                    <LinkIcon className="w-3.5 h-3.5 inline mr-1.5" />
-                                    Paste URL
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setImportMode('browse');
-                                        if (hasDriveAccess && googleForms.length === 0) {
-                                            fetchGoogleForms();
-                                        }
-                                    }}
-                                    className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${importMode === 'browse'
-                                        ? 'bg-white text-blue-700 shadow-sm'
-                                        : 'text-slate-600 hover:text-slate-900'
-                                        }`}
-                                >
-                                    <FileSpreadsheet className="w-3.5 h-3.5 inline mr-1.5" />
-                                    Browse Drive
-                                </button>
+                        <div className="flex items-center gap-3 mb-3">
+                            <div className="p-2 bg-white rounded-lg shadow-sm">
+                                <FileSpreadsheet className="w-5 h-5 text-blue-600" />
                             </div>
+                            <div>
+                                <h3 className="font-medium text-slate-900">Import from Google Forms</h3>
+                                <p className="text-xs text-slate-500">Paste a form URL or browse your Google Drive</p>
+                            </div>
+                        </div>
 
-                            {/* URL Import Tab */}
-                            {importMode === 'url' && (
-                                <div className="space-y-2">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            value={formUrl}
-                                            onChange={(e) => {
-                                                setFormUrl(e.target.value);
-                                                setUrlError('');
-                                            }}
-                                            placeholder="https://docs.google.com/forms/d/..."
-                                            className="flex-1 bg-white"
-                                        />
-                                        <Button
-                                            onClick={importFromUrl}
-                                            disabled={!formUrl || importing}
-                                            className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
-                                        >
-                                            {importing ? (
-                                                <RefreshCw className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <>
-                                                    <Download className="w-4 h-4 mr-1" />
-                                                    Import
-                                                </>
-                                            )}
-                                        </Button>
-                                    </div>
-                                    {urlError && (
-                                        <p className="text-xs text-red-600">{urlError}</p>
-                                    )}
-                                    <p className="text-xs text-slate-500">
-                                        Paste the URL of any Google Form you have access to
-                                    </p>
+                        {checkingAccess ? (
+                            <div className="flex items-center gap-2 text-sm text-slate-500">
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                Checking connection...
+                            </div>
+                        ) : !googleFormsConnected ? (
+                            <Button
+                                onClick={connectGoogleForms}
+                                className="bg-blue-600 hover:bg-blue-700 text-white border-transparent shadow-sm transition-all"
+                            >
+                                <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24">
+                                    <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                                    <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                                    <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                                    <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                                </svg>
+                                Connect Google Account
+                            </Button>
+                        ) : (
+                            <div className="space-y-3">
+                                {/* Tab Buttons */}
+                                <div className="flex gap-1 p-1 bg-white/60 rounded-lg">
+                                    <button
+                                        onClick={() => setImportMode('url')}
+                                        className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${importMode === 'url'
+                                            ? 'bg-white text-blue-700 shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900'
+                                            }`}
+                                    >
+                                        <LinkIcon className="w-3.5 h-3.5 inline mr-1.5" />
+                                        Paste URL
+                                    </button>
+                                    <button
+                                        onClick={() => setImportMode('picker')}
+                                        className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-all ${importMode === 'picker'
+                                            ? 'bg-white text-blue-700 shadow-sm'
+                                            : 'text-slate-600 hover:text-slate-900'
+                                            }`}
+                                    >
+                                        <FileSpreadsheet className="w-3.5 h-3.5 inline mr-1.5" />
+                                        Browse Drive
+                                    </button>
                                 </div>
-                            )}
 
-                            {/* Browse Drive Tab */}
-                            {importMode === 'browse' && (
-                                <div className="space-y-2">
-                                    {!hasDriveAccess ? (
-                                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-                                            <p className="text-sm text-amber-800 mb-2">
-                                                Drive access needed to browse your forms
-                                            </p>
+                                {/* URL Import Tab */}
+                                {importMode === 'url' && (
+                                    <div className="space-y-2">
+                                        <div className="flex gap-2">
+                                            <Input
+                                                value={formUrl}
+                                                onChange={(e) => {
+                                                    setFormUrl(e.target.value);
+                                                    setUrlError('');
+                                                }}
+                                                placeholder="https://docs.google.com/forms/d/..."
+                                                className="flex-1 bg-white"
+                                            />
                                             <Button
-                                                onClick={connectGoogleForms}
-                                                variant="outline"
-                                                size="sm"
-                                                className="bg-white border-amber-300 text-amber-700 hover:bg-amber-50"
-                                            >
-                                                Enable Drive Access
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <>
-                                            <div className="flex items-center gap-2">
-                                                <Select
-                                                    value={selectedGoogleForm}
-                                                    onValueChange={setSelectedGoogleForm}
-                                                    disabled={loadingForms}
-                                                >
-                                                    <SelectTrigger className="flex-1 bg-white">
-                                                        <SelectValue placeholder={loadingForms ? "Loading forms..." : "Select a Google Form"} />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {googleForms.map((form) => (
-                                                            <SelectItem key={form.id} value={form.id}>
-                                                                {form.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                        {googleForms.length === 0 && !loadingForms && (
-                                                            <SelectItem value="none" disabled>No forms found</SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                                <Button
-                                                    variant="outline"
-                                                    size="icon"
-                                                    onClick={fetchGoogleForms}
-                                                    disabled={loadingForms}
-                                                    className="shrink-0 bg-white"
-                                                >
-                                                    <RefreshCw className={`w-4 h-4 ${loadingForms ? 'animate-spin' : ''}`} />
-                                                </Button>
-                                            </div>
-                                            <Button
-                                                onClick={importGoogleForm}
-                                                disabled={!selectedGoogleForm || importing}
-                                                className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                                                onClick={importFromUrl}
+                                                disabled={!formUrl || importing}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white shrink-0"
                                             >
                                                 {importing ? (
-                                                    <>
-                                                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                                                        Importing...
-                                                    </>
+                                                    <RefreshCw className="w-4 h-4 animate-spin" />
                                                 ) : (
                                                     <>
-                                                        <Download className="w-4 h-4 mr-2" />
-                                                        Import Selected Form
+                                                        <Download className="w-4 h-4 mr-1" />
+                                                        Import
                                                     </>
                                                 )}
                                             </Button>
-                                        </>
-                                    )}
-                                </div>
-                            )}
+                                        </div>
+                                        {urlError && (
+                                            <p className="text-xs text-red-600">{urlError}</p>
+                                        )}
+                                        <p className="text-xs text-slate-500">
+                                            Paste the URL of any Google Form you have access to
+                                        </p>
+                                    </div>
+                                )}
 
-                            {/* Disconnect Button */}
-                            <div className="pt-2 border-t border-blue-100">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={disconnectGoogleForms}
-                                    className="text-slate-500 hover:text-red-600 h-7 text-xs"
-                                >
-                                    <Unlink className="w-3 h-3 mr-1" />
-                                    Disconnect Google Account
-                                </Button>
+                                {/* File Picker Tab */}
+                                {importMode === 'picker' && (
+                                    <div className="space-y-3">
+                                        <Button
+                                            onClick={openPicker}
+                                            disabled={pickerLoading || importing || !pickerLoaded}
+                                            className="bg-blue-600 hover:bg-blue-700 text-white w-full"
+                                        >
+                                            {pickerLoading || importing ? (
+                                                <>
+                                                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                                    {importing ? 'Importing...' : 'Opening...'}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FileSpreadsheet className="w-4 h-4 mr-2" />
+                                                    Open File Picker
+                                                </>
+                                            )}
+                                        </Button>
+                                        {(pickerError || googlePickerError) && (
+                                            <p className="text-xs text-red-600">
+                                                {pickerError || googlePickerError}
+                                            </p>
+                                        )}
+                                        <p className="text-xs text-slate-500">
+                                            Select a Google Form from your Drive using the file picker
+                                        </p>
+                                    </div>
+                                )}
+
+                                {/* Disconnect Button */}
+                                <div className="pt-2 border-t border-blue-100">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={disconnectGoogleForms}
+                                        className="text-slate-500 hover:text-red-600 h-7 text-xs"
+                                    >
+                                        <Unlink className="w-3 h-3 mr-1" />
+                                        Disconnect Google Account
+                                    </Button>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        )}
                     </div>
                 )}
             </div>
@@ -819,6 +785,156 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
                                                             <Image className="w-4 h-4 mr-1" /> Add Image
                                                         </Button>
                                                     )}
+                                                    <Button variant="ghost" size="sm" onClick={() => duplicateItem(item.id)} className="text-slate-500">
+                                                        <Copy className="w-4 h-4 mr-1" /> Duplicate
+                                                    </Button>
+                                                    <Button variant="ghost" size="sm" onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-600">
+                                                        <Trash2 className="w-4 h-4 mr-1" /> Delete
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        );
+                    }
+
+                    // CONTENT BLOCK CARD (Title, Image, Video)
+                    if (item.itemType === 'content') {
+                        return (
+                            <Card
+                                key={item.id}
+                                className={`border-l-4 ${item.contentType === 'title' ? 'border-l-purple-500' :
+                                    item.contentType === 'image' ? 'border-l-emerald-500' :
+                                        'border-l-red-500'
+                                    } ${isActive ? 'ring-2 ring-indigo-500' : 'border-slate-200'} shadow-sm cursor-pointer transition-all`}
+                                onClick={() => setActiveItem(item.id)}
+                            >
+                                <CardContent className="p-5">
+                                    <div className="flex items-start gap-3">
+                                        <div className="mt-1 text-slate-400 cursor-move hover:text-slate-600">
+                                            <GripVertical className="w-5 h-5" />
+                                        </div>
+                                        <div className="flex-1 space-y-3">
+                                            <div className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${item.contentType === 'title' ? 'text-purple-600' :
+                                                item.contentType === 'image' ? 'text-emerald-600' :
+                                                    'text-red-600'
+                                                }`}>
+                                                {item.contentType === 'title' && <Heading className="w-4 h-4" />}
+                                                {item.contentType === 'image' && <ImagePlus className="w-4 h-4" />}
+                                                {item.contentType === 'video' && <Video className="w-4 h-4" />}
+                                                {item.contentType === 'title' ? 'Title & Description' :
+                                                    item.contentType === 'image' ? 'Image' : 'Video'}
+                                            </div>
+
+                                            {/* Title Block */}
+                                            {item.contentType === 'title' && (
+                                                <>
+                                                    <Input
+                                                        value={item.label}
+                                                        onChange={(e) => updateItem(item.id, 'label', e.target.value)}
+                                                        className="text-xl font-bold border-transparent hover:border-slate-200 focus:border-purple-500 px-0 h-auto"
+                                                        placeholder="Title"
+                                                    />
+                                                    <textarea
+                                                        value={item.description || ''}
+                                                        onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                                                        className="w-full text-sm text-slate-600 border-transparent hover:border-slate-200 focus:border-purple-500 px-0 resize-none bg-transparent focus:outline-none focus:ring-0"
+                                                        placeholder="Description text (optional)"
+                                                        rows={2}
+                                                    />
+                                                </>
+                                            )}
+
+                                            {/* Image Block */}
+                                            {item.contentType === 'image' && (
+                                                <div className="space-y-3">
+                                                    {item.contentUrl ? (
+                                                        <div className="relative inline-block">
+                                                            <img
+                                                                src={item.contentUrl}
+                                                                alt={item.contentAlt || 'Form image'}
+                                                                className="max-w-full max-h-64 rounded-lg border border-slate-200"
+                                                            />
+                                                            {isActive && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateItem(item.id, 'contentUrl', '')}
+                                                                    className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-emerald-400 transition-colors">
+                                                            <ImagePlus className="w-10 h-10 mx-auto text-slate-400 mb-2" />
+                                                            <p className="text-sm text-slate-500 mb-2">Add an image</p>
+                                                            <Input
+                                                                placeholder="Paste image URL here..."
+                                                                value={item.contentUrl || ''}
+                                                                onChange={(e) => updateItem(item.id, 'contentUrl', e.target.value)}
+                                                                className="max-w-md mx-auto"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                    {isActive && item.contentUrl && (
+                                                        <Input
+                                                            placeholder="Alt text (optional)"
+                                                            value={item.contentAlt || ''}
+                                                            onChange={(e) => updateItem(item.id, 'contentAlt', e.target.value)}
+                                                            className="text-sm"
+                                                        />
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Video Block */}
+                                            {item.contentType === 'video' && (
+                                                <div className="space-y-3">
+                                                    {item.contentUrl ? (
+                                                        <div className="relative">
+                                                            <div className="aspect-video rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                                                                <iframe
+                                                                    src={item.contentUrl.includes('youtube.com/watch')
+                                                                        ? item.contentUrl.replace('watch?v=', 'embed/')
+                                                                        : item.contentUrl.includes('youtu.be/')
+                                                                            ? `https://www.youtube.com/embed/${item.contentUrl.split('youtu.be/')[1]}`
+                                                                            : item.contentUrl}
+                                                                    className="w-full h-full"
+                                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                                    allowFullScreen
+                                                                />
+                                                            </div>
+                                                            {isActive && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => updateItem(item.id, 'contentUrl', '')}
+                                                                    className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                                                >
+                                                                    <Trash2 className="w-3 h-3" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-red-400 transition-colors">
+                                                            <Video className="w-10 h-10 mx-auto text-slate-400 mb-2" />
+                                                            <p className="text-sm text-slate-500 mb-2">Add a YouTube or Vimeo video</p>
+                                                            <Input
+                                                                placeholder="Paste video URL here..."
+                                                                value={item.contentUrl || ''}
+                                                                onChange={(e) => updateItem(item.id, 'contentUrl', e.target.value)}
+                                                                className="max-w-md mx-auto"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* Actions */}
+                                            {isActive && (
+                                                <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
                                                     <Button variant="ghost" size="sm" onClick={() => duplicateItem(item.id)} className="text-slate-500">
                                                         <Copy className="w-4 h-4 mr-1" /> Duplicate
                                                     </Button>
@@ -1221,24 +1337,51 @@ export function FormBuilder({ questions, onChange, draftId, headerImage, onHeade
                 })}
             </div>
 
-            {/* Add Buttons */}
-            <div className="flex gap-3 pt-2">
-                <Button
-                    variant="outline"
-                    onClick={() => addQuestion('text')}
-                    className="flex-1 h-12 border-dashed border-2 border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600"
-                >
-                    <Plus className="w-5 h-5 mr-2" />
-                    Add Question
-                </Button>
-                <Button
-                    variant="outline"
-                    onClick={() => addSection()}
-                    className="h-12 border-dashed border-2 border-slate-300 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600"
-                >
-                    <SeparatorHorizontal className="w-5 h-5 mr-2" />
-                    Add Section
-                </Button>
+            {/* Add Buttons - Like Google Forms */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-3">Add to form</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={() => addQuestion('text')}
+                        className="h-16 flex-col gap-1 border-slate-200 hover:border-indigo-400 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600"
+                    >
+                        <Plus className="w-5 h-5" />
+                        <span className="text-xs">Question</span>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => addContentBlock('title')}
+                        className="h-16 flex-col gap-1 border-slate-200 hover:border-purple-400 hover:bg-purple-50 text-slate-600 hover:text-purple-600"
+                    >
+                        <Heading className="w-5 h-5" />
+                        <span className="text-xs">Title</span>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => addContentBlock('image')}
+                        className="h-16 flex-col gap-1 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50 text-slate-600 hover:text-emerald-600"
+                    >
+                        <ImagePlus className="w-5 h-5" />
+                        <span className="text-xs">Image</span>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => addContentBlock('video')}
+                        className="h-16 flex-col gap-1 border-slate-200 hover:border-red-400 hover:bg-red-50 text-slate-600 hover:text-red-600"
+                    >
+                        <Video className="w-5 h-5" />
+                        <span className="text-xs">Video</span>
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => addSection()}
+                        className="h-16 flex-col gap-1 border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-slate-600 hover:text-amber-600"
+                    >
+                        <SeparatorHorizontal className="w-5 h-5" />
+                        <span className="text-xs">Section</span>
+                    </Button>
+                </div>
             </div>
 
             {/* Empty State */}

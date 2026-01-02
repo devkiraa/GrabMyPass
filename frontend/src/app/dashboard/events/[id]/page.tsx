@@ -64,6 +64,7 @@ interface EventData {
     location: string;
     price: number;
     status: string;
+    formHeaderImage?: string;
     formSchema: Array<{
         id: string;
         label: string;
@@ -424,6 +425,17 @@ export default function EventDetailPage() {
                     )}
                 </div>
             </div>
+
+            {/* Form Header Image */}
+            {event.formHeaderImage && (
+                <div className="rounded-xl overflow-hidden border border-slate-200 shadow-sm">
+                    <img
+                        src={event.formHeaderImage}
+                        alt={event.title}
+                        className="w-full h-48 object-cover"
+                    />
+                </div>
+            )}
 
             {/* Stats Row */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -30,7 +30,7 @@ function CreateEventContent() {
     const [isEditMode, setIsEditMode] = useState(false); // Track if editing existing event
 
     const { isFeatureLocked, isAtLimit, hasFeature, summary: planSummary } = usePlanSummary();
-    
+
     // Feature gates
     const isAcceptPaymentsLocked = isFeatureLocked('acceptPayments');
     const isWaitlistLocked = isFeatureLocked('waitlistManagement');
@@ -66,7 +66,7 @@ function CreateEventContent() {
         { id: 'q1', itemType: 'question', type: 'text', label: 'Full Name', required: true, placeholder: 'John Doe' },
         { id: 'q2', itemType: 'question', type: 'email', label: 'Email Address', required: true, placeholder: 'john@example.com' }
     ]);
-    
+
     // Form Header Image
     const [formHeaderImage, setFormHeaderImage] = useState<string | null>(null);
 
@@ -509,289 +509,227 @@ function CreateEventContent() {
             {/* Step 1: Basic Details */}
             {step === 1 && (
                 <div className="space-y-6">
-                    <div className="grid gap-2">
-                        <Label htmlFor="title">Event Title</Label>
-                        <Input id="title" name="title" value={formData.title} onChange={handleInputChange} placeholder="e.g. Annual Tech Conference 2025" className="bg-white" />
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="slug">Event URL Slug</Label>
-                        <div className="relative">
-                            <div className="flex items-center">
-                                <span className="bg-slate-100 border border-r-0 border-slate-300 px-3 h-10 flex items-center text-slate-500 rounded-l-md text-sm">
-                                    maketicket.app/{username || '...'}/
-                                </span>
-                                <Input
-                                    id="slug"
-                                    name="slug"
-                                    value={formData.slug}
-                                    onChange={handleInputChange}
-                                    placeholder="tech-conf-2025"
-                                    className={`bg-white rounded-l-none ${slugAvailable === false ? 'border-red-500 focus:ring-red-500' : slugAvailable === true ? 'border-green-500 focus:ring-green-500' : ''}`}
-                                />
+                    {/* Event Identity Card */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-2" />
+                        <div className="p-6 space-y-5">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-10 h-10 rounded-xl bg-indigo-100 flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-slate-900">Event Identity</h3>
+                                    <p className="text-sm text-slate-500">Basic information about your event</p>
+                                </div>
                             </div>
-                            <div className="absolute right-3 top-2.5">
-                                {checkingSlug ? (
-                                    <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-                                ) : slugAvailable === true ? (
-                                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                                ) : slugAvailable === false ? (
-                                    <XCircle className="w-5 h-5 text-red-500" />
-                                ) : null}
-                            </div>
-                            {slugAvailable === false && (
-                                <p className="text-xs text-red-500 mt-1">Slug already taken by you. Please choose another.</p>
-                            )}
-                        </div>
-                    </div>
-                    <div className="grid gap-2">
-                        <Label htmlFor="description">Description</Label>
-                        <textarea
-                            id="description"
-                            name="description"
-                            value={formData.description}
-                            onChange={handleInputChange}
-                            rows={4}
-                            className="flex min-h-[80px] w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                            placeholder="Tell people what your event is about..."
-                        />
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="grid gap-2">
-                            <div className="flex items-center justify-between">
-                                <Label htmlFor="date">Date & Time</Label>
-                            </div>
-                            <Input
-                                id="date"
-                                name="date"
-                                type="datetime-local"
-                                value={formData.date}
-                                onChange={handleInputChange}
-                                className="bg-white"
-                                required
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="location">Location</Label>
-                            <Input id="location" name="location" value={formData.location} onChange={handleInputChange} placeholder="e.g. Grand Hotel, New York or Online" className="bg-white" />
-                        </div>
-                        <div className="grid gap-2">
-                            <div className="flex items-center gap-2">
-                                <Label htmlFor="price">Ticket Price (INR)</Label>
-                                {isAcceptPaymentsLocked && <LockedBadge feature="acceptPayments" />}
-                            </div>
-                            <div className="relative">
-                                <Input
-                                    id="price"
-                                    name="price"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={isAcceptPaymentsLocked ? 0 : formData.price}
-                                    onChange={(e) => {
-                                        if (isAcceptPaymentsLocked) {
-                                            setFormData(prev => ({ ...prev, price: 0 }));
-                                            return;
-                                        }
-                                        handleInputChange(e);
-                                    }}
-                                    placeholder="0.00 (Leave 0 for Free)"
-                                    className={`bg-white ${isAcceptPaymentsLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
-                                    disabled={isAcceptPaymentsLocked}
-                                />
-                                {isAcceptPaymentsLocked && (
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                        <Lock className="h-4 w-4 text-slate-400" />
+
+                            <div className="grid gap-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="title" className="text-slate-700 font-medium">Event Title *</Label>
+                                    <Input
+                                        id="title"
+                                        name="title"
+                                        value={formData.title}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. Annual Tech Conference 2025"
+                                        className="bg-white h-11 text-base"
+                                    />
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="slug" className="text-slate-700 font-medium">Event URL</Label>
+                                    <div className="relative">
+                                        <div className="flex items-center">
+                                            <span className="bg-slate-100 border border-r-0 border-slate-200 px-3 h-11 flex items-center text-slate-500 rounded-l-lg text-sm font-medium">
+                                                maketicket.app/{username || '...'}/
+                                            </span>
+                                            <Input
+                                                id="slug"
+                                                name="slug"
+                                                value={formData.slug}
+                                                onChange={handleInputChange}
+                                                placeholder="tech-conf-2025"
+                                                className={`bg-white rounded-l-none h-11 ${slugAvailable === false ? 'border-red-500 focus:ring-red-500' : slugAvailable === true ? 'border-green-500 focus:ring-green-500' : ''}`}
+                                            />
+                                        </div>
+                                        <div className="absolute right-3 top-3">
+                                            {checkingSlug ? (
+                                                <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
+                                            ) : slugAvailable === true ? (
+                                                <CheckCircle2 className="w-5 h-5 text-green-500" />
+                                            ) : slugAvailable === false ? (
+                                                <XCircle className="w-5 h-5 text-red-500" />
+                                            ) : null}
+                                        </div>
+                                        {slugAvailable === false && (
+                                            <p className="text-xs text-red-500 mt-1">This URL is already taken. Try another one.</p>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                            {isAcceptPaymentsLocked ? (
-                                <p className="text-xs text-amber-600 flex items-center gap-1">
-                                    <Lock className="h-3 w-3" />
-                                    Paid events require a paid plan.{' '}
-                                    <Button
-                                        type="button"
-                                        variant="link"
-                                        className="h-auto p-0 text-xs text-amber-700 font-medium"
-                                        onClick={() => router.push('/dashboard/billing')}
-                                    >
-                                        Upgrade now
-                                    </Button>
-                                </p>
-                            ) : (
-                                <p className="text-xs text-slate-500">Set to 0 for free events.</p>
-                            )}
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="maxRegistrations">Maximum Registrations</Label>
-                            <Input
-                                id="maxRegistrations"
-                                name="maxRegistrations"
-                                type="number"
-                                min="0"
-                                value={formData.maxRegistrations}
-                                onChange={handleInputChange}
-                                placeholder="0 (Unlimited)"
-                                className="bg-white"
-                            />
-                            <p className="text-xs text-slate-500">Set to 0 for unlimited. Form auto-closes when limit is reached.</p>
-                        </div>
+                                </div>
 
-                        {/* Multiple Registrations Toggle */}
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg border border-slate-100">
-                            <div className="space-y-0.5">
-                                <Label htmlFor="allowMultipleRegistrations" className="text-base cursor-pointer">
-                                    Allow Multiple Registrations
-                                </Label>
-                                <p className="text-xs text-slate-500">
-                                    {formData.allowMultipleRegistrations
-                                        ? 'Same email can register multiple times'
-                                        : 'Each email can only register once'}
-                                </p>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="description" className="text-slate-700 font-medium">Description</Label>
+                                    <textarea
+                                        id="description"
+                                        name="description"
+                                        value={formData.description}
+                                        onChange={handleInputChange}
+                                        rows={3}
+                                        className="flex min-h-[80px] w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm ring-offset-white placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 resize-none"
+                                        placeholder="Tell people what your event is about..."
+                                    />
+                                </div>
                             </div>
-                            <button
-                                type="button"
-                                role="switch"
-                                aria-checked={formData.allowMultipleRegistrations}
-                                onClick={() => setFormData(prev => ({
-                                    ...prev,
-                                    allowMultipleRegistrations: !prev.allowMultipleRegistrations
-                                }))}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.allowMultipleRegistrations ? 'bg-indigo-600' : 'bg-slate-300'
-                                    }`}
-                            >
-                                <span
-                                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.allowMultipleRegistrations ? 'translate-x-6' : 'translate-x-1'
-                                        }`}
-                                />
-                            </button>
                         </div>
+                    </div>
 
-                        {/* Email Settings Section */}
-                        <div className="space-y-4 p-4 bg-indigo-50/50 rounded-lg border border-indigo-100">
-                            <div className="flex items-center gap-2">
-                                <svg className="w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                                </svg>
-                                <Label className="text-base font-semibold text-indigo-900">Email Configuration</Label>
+                    {/* When & Where Card */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="p-6 space-y-5">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-slate-900">When & Where</h3>
+                                    <p className="text-sm text-slate-500">Schedule and location details</p>
+                                </div>
                             </div>
 
-                            {/* Send Confirmation Toggle */}
-                            <div className="flex items-center justify-between">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="date" className="text-slate-700 font-medium">Date & Time *</Label>
+                                    <Input
+                                        id="date"
+                                        name="date"
+                                        type="datetime-local"
+                                        value={formData.date}
+                                        onChange={handleInputChange}
+                                        className="bg-white h-11"
+                                        required
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="location" className="text-slate-700 font-medium">Location</Label>
+                                    <Input
+                                        id="location"
+                                        name="location"
+                                        value={formData.location}
+                                        onChange={handleInputChange}
+                                        placeholder="e.g. Grand Hotel, NYC or Online"
+                                        className="bg-white h-11"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Capacity & Pricing Card */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="p-6 space-y-5">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                                    <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-slate-900">Capacity & Pricing</h3>
+                                    <p className="text-sm text-slate-500">Set limits and ticket pricing</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid gap-2">
+                                    <div className="flex items-center gap-2">
+                                        <Label htmlFor="price" className="text-slate-700 font-medium">Ticket Price (₹)</Label>
+                                        {isAcceptPaymentsLocked && <LockedBadge feature="acceptPayments" />}
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-medium">₹</span>
+                                        <Input
+                                            id="price"
+                                            name="price"
+                                            type="number"
+                                            min="0"
+                                            step="1"
+                                            value={isAcceptPaymentsLocked ? 0 : formData.price}
+                                            onChange={(e) => {
+                                                if (isAcceptPaymentsLocked) {
+                                                    setFormData(prev => ({ ...prev, price: 0 }));
+                                                    return;
+                                                }
+                                                handleInputChange(e);
+                                            }}
+                                            placeholder="0"
+                                            className={`bg-white h-11 pl-8 ${isAcceptPaymentsLocked ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                            disabled={isAcceptPaymentsLocked}
+                                        />
+                                        {isAcceptPaymentsLocked && (
+                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                <Lock className="h-4 w-4 text-slate-400" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <p className="text-xs text-slate-500">
+                                        {isAcceptPaymentsLocked ? (
+                                            <span className="text-amber-600 flex items-center gap-1">
+                                                <Lock className="h-3 w-3" /> Paid events require upgrade
+                                            </span>
+                                        ) : (
+                                            'Set to 0 for free events'
+                                        )}
+                                    </p>
+                                </div>
+
+                                <div className="grid gap-2">
+                                    <Label htmlFor="maxRegistrations" className="text-slate-700 font-medium">Max Registrations</Label>
+                                    <Input
+                                        id="maxRegistrations"
+                                        name="maxRegistrations"
+                                        type="number"
+                                        min="0"
+                                        value={formData.maxRegistrations}
+                                        onChange={handleInputChange}
+                                        placeholder="0"
+                                        className="bg-white h-11"
+                                    />
+                                    <p className="text-xs text-slate-500">0 = Unlimited capacity</p>
+                                </div>
+                            </div>
+
+                            {/* Multiple Registrations Toggle */}
+                            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
                                 <div className="space-y-0.5">
-                                    <Label htmlFor="sendConfirmationEmail" className="cursor-pointer">
-                                        Send Confirmation Emails
+                                    <Label htmlFor="allowMultipleRegistrations" className="font-medium cursor-pointer">
+                                        Allow Multiple Registrations
                                     </Label>
                                     <p className="text-xs text-slate-500">
-                                        Automatically email attendees when they register
+                                        {formData.allowMultipleRegistrations
+                                            ? 'Same email can register multiple times'
+                                            : 'Each email can only register once'}
                                     </p>
                                 </div>
                                 <button
                                     type="button"
                                     role="switch"
-                                    aria-checked={formData.sendConfirmationEmail}
+                                    aria-checked={formData.allowMultipleRegistrations}
                                     onClick={() => setFormData(prev => ({
                                         ...prev,
-                                        sendConfirmationEmail: !prev.sendConfirmationEmail
+                                        allowMultipleRegistrations: !prev.allowMultipleRegistrations
                                     }))}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.sendConfirmationEmail ? 'bg-indigo-600' : 'bg-slate-300'
-                                        }`}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.allowMultipleRegistrations ? 'bg-indigo-600' : 'bg-slate-300'}`}
                                 >
                                     <span
-                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.sendConfirmationEmail ? 'translate-x-6' : 'translate-x-1'
-                                            }`}
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.allowMultipleRegistrations ? 'translate-x-6' : 'translate-x-1'}`}
                                     />
                                 </button>
                             </div>
-
-                            {/* Email Template Selector */}
-                            {formData.sendConfirmationEmail && (
-                                <div className="grid gap-2">
-                                    <Label htmlFor="emailTemplateId">Email Template</Label>
-                                    <select
-                                        id="emailTemplateId"
-                                        value={formData.emailTemplateId}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, emailTemplateId: e.target.value }))}
-                                        className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-600"
-                                    >
-                                        <option value="">Use default email layout</option>
-                                        {emailTemplates.map((template) => (
-                                            <option key={template._id} value={template._id}>
-                                                {template.name} - {template.subject}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p className="text-xs text-slate-500">
-                                        Select a custom template or use the default.
-                                        <a href="/dashboard/settings/email-templates" className="text-indigo-600 hover:underline ml-1">
-                                            Create templates →
-                                        </a>
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Ticket Design Section */}
-                        <div className="space-y-4 p-4 bg-purple-50/50 rounded-lg border border-purple-100">
-                            <div className="flex items-center gap-2">
-                                <svg className="w-5 h-5 text-purple-600" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
-                                </svg>
-                                <Label className="text-base font-semibold text-purple-900">Ticket Design</Label>
-                            </div>
-
-                            {/* Attach Ticket Toggle */}
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-0.5">
-                                    <Label htmlFor="attachTicket" className="cursor-pointer">
-                                        Attach Ticket to Email
-                                    </Label>
-                                    <p className="text-xs text-slate-500">
-                                        Generate and attach a custom ticket with QR code
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={formData.attachTicket}
-                                    onClick={() => setFormData(prev => ({
-                                        ...prev,
-                                        attachTicket: !prev.attachTicket
-                                    }))}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${formData.attachTicket ? 'bg-purple-600' : 'bg-slate-300'
-                                        }`}
-                                >
-                                    <span
-                                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${formData.attachTicket ? 'translate-x-6' : 'translate-x-1'
-                                            }`}
-                                    />
-                                </button>
-                            </div>
-
-                            {/* Ticket Template Selector */}
-                            {formData.attachTicket && (
-                                <div className="grid gap-2">
-                                    <Label htmlFor="ticketTemplateId">Ticket Template</Label>
-                                    <select
-                                        id="ticketTemplateId"
-                                        value={formData.ticketTemplateId}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, ticketTemplateId: e.target.value }))}
-                                        className="w-full h-10 px-3 rounded-md border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-600"
-                                    >
-                                        <option value="">Use default ticket design</option>
-                                        {ticketTemplates.map((template) => (
-                                            <option key={template._id} value={template._id}>
-                                                {template.name} ({template.width}×{template.height}px)
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p className="text-xs text-slate-500">
-                                        Select a custom ticket design or use the default.
-                                        <a href="/dashboard/settings/ticket-templates" className="text-purple-600 hover:underline ml-1">
-                                            Design tickets →
-                                        </a>
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -898,6 +836,7 @@ function CreateEventContent() {
                     </Card>
                 </div>
             )}
+
 
             {/* Step 4: Review */}
             {step === 4 && (
@@ -1010,7 +949,8 @@ function CreateEventContent() {
                         </CardContent>
                     </Card>
                 </div>
-            )}
+            )
+            }
 
             {/* Navigation Buttons */}
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-slate-200 z-50 md:left-64 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
@@ -1040,7 +980,7 @@ function CreateEventContent() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
 

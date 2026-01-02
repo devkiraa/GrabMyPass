@@ -7,7 +7,8 @@ import {
     googleFormsCallback,
     listGoogleForms,
     getGoogleForm,
-    disconnectGoogleForms
+    disconnectGoogleForms,
+    getPickerToken
 } from '../controllers/googleFormsController';
 
 export const googleFormsRouter = express.Router();
@@ -18,6 +19,7 @@ googleFormsRouter.get('/callback', googleFormsCallback);
 // Protected routes
 googleFormsRouter.get('/access', verifyToken, requireGoogleFormsIntegration, checkGoogleFormsAccess);
 googleFormsRouter.get('/connect', verifyToken, requireGoogleFormsIntegration, getGoogleFormsConnectUrl);
+googleFormsRouter.get('/picker-token', verifyToken, requireGoogleFormsIntegration, getPickerToken);
 googleFormsRouter.get('/list', verifyToken, requireGoogleFormsIntegration, listGoogleForms);
 googleFormsRouter.get('/form/:formId', verifyToken, requireGoogleFormsIntegration, getGoogleForm);
 googleFormsRouter.delete('/disconnect', verifyToken, requireGoogleFormsIntegration, disconnectGoogleForms);

@@ -740,12 +740,23 @@ export default function PublicEventPage() {
                 <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-blue-500/10 rounded-full blur-[80px] translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
                 <div className="relative z-10">
-                    <div className="inline-flex items-center gap-2 text-[#00CC68] font-medium mb-8">
+                    <div className="inline-flex items-center gap-2 text-[#00CC68] font-medium mb-6">
                         <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center backdrop-blur-sm">
                             <Ticket className="w-4 h-4" />
                         </div>
                         <span className="tracking-wide text-sm font-semibold uppercase">Event Registration</span>
                     </div>
+
+                    {/* Form Header Image - Display at top of Step 1 */}
+                    {event.formHeaderImage && (
+                        <div className="mb-6 rounded-xl overflow-hidden border border-white/10 shadow-lg">
+                            <img
+                                src={event.formHeaderImage}
+                                alt={event.title}
+                                className="w-full h-40 lg:h-48 object-cover"
+                            />
+                        </div>
+                    )}
 
                     <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight mb-6 leading-tight">
                         {event.title}
@@ -984,17 +995,6 @@ export default function PublicEventPage() {
                                 <ChevronLeft className="w-4 h-4" />
                                 <span className="text-sm font-medium">Back</span>
                             </div>
-
-                            {/* Form Header Image - Show only on first page */}
-                            {currentSectionPage === 0 && event.formHeaderImage && (
-                                <div className="rounded-xl overflow-hidden shadow-sm border border-gray-200">
-                                    <img 
-                                        src={event.formHeaderImage} 
-                                        alt={event.title}
-                                        className="w-full h-40 object-cover"
-                                    />
-                                </div>
-                            )}
 
                             <div className="space-y-2">
                                 <h2 className="text-3xl font-bold text-[#303030]">Complete Registration</h2>

@@ -31,7 +31,7 @@ export default function EventsPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [username, setUsername] = useState('');
-    
+
     // Plan limits
     const { isAtLimit, getLimit, getUsage, getRemainingQuota, summary: planSummary } = usePlanSummary();
     const isAtEventLimit = isAtLimit('maxEventsPerMonth');
@@ -59,7 +59,11 @@ export default function EventsPage() {
             });
             if (userRes.ok) {
                 const userData = await userRes.json();
-                setUsername(userData.username);
+                // Use username, or email prefix, or name as fallback
+                const usernameValue = userData.username ||
+                    (userData.email ? userData.email.split('@')[0] : null) ||
+                    (userData.name ? userData.name.toLowerCase().replace(/\s+/g, '') : 'user');
+                setUsername(usernameValue);
             }
 
         } catch (error) {
@@ -130,14 +134,25 @@ export default function EventsPage() {
         e.location?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const copyEventLink = (slug: string) => {
+    const copyEventLink = async (slug: string) => {
         if (!username) {
-            alert('Username not loaded yet');
+            alert('Username not loaded yet. Please try again.');
             return;
         }
         const url = `${window.location.origin}/${username}/${slug}`;
-        navigator.clipboard.writeText(url);
-        alert('Event link copied!');
+        try {
+            await navigator.clipboard.writeText(url);
+            alert('Event link copied!');
+        } catch (err) {
+            // Fallback for browsers that don't support clipboard API
+            const textarea = document.createElement('textarea');
+            textarea.value = url;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('Event link copied!');
+        }
     };
 
     // Skeleton Loading
@@ -184,7 +199,7 @@ export default function EventsPage() {
         <div className="space-y-8">
             {/* Limit Warning */}
             <LimitWarning limit="maxEventsPerMonth" showAt={70} />
-            
+
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">My Events</h1>
@@ -206,7 +221,7 @@ export default function EventsPage() {
                             Upgrade Plan
                         </Button>
                     )}
-                    <Button 
+                    <Button
                         className={`shadow-sm ${isAtEventLimit ? 'bg-slate-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700'}`}
                         onClick={() => {
                             if (isAtEventLimit) {

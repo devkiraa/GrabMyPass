@@ -81,12 +81,11 @@ export const getGoogleFormsConnectUrl = (req: Request, res: Response) => {
     const { draftId } = req.query;
     const redirectUri = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'}/google-forms/callback`;
 
-    // Scopes needed for Google Forms + Sheets
+    // Scopes needed for Google Forms + Sheets (using drive.file with Picker instead of drive.readonly)
     const scopes = [
         'https://www.googleapis.com/auth/forms.body.readonly', // Read form structure
-        'https://www.googleapis.com/auth/drive.readonly',       // List forms from Drive
         'https://www.googleapis.com/auth/spreadsheets',         // Create/edit spreadsheets
-        'https://www.googleapis.com/auth/drive.file'            // Access app-created files
+        'https://www.googleapis.com/auth/drive.file'            // Access files selected via Picker
     ].join(' ');
 
     // Create state with userId and draftId
@@ -274,21 +273,32 @@ export const getGoogleForm = async (req: Request, res: Response) => {
         // Convert Google Form to our format (Async now)
         const convertedQuestions = await convertGoogleFormToOurFormat(googleForm);
 
-        // Extract banner/header image if present
+        // Try to extract banner/header image if present
+        // NOTE: The Google Forms API does NOT expose the theme header image set via "Customize theme".
+        // Only inline images added as form content items can be retrieved.
         let bannerImageUrl = null;
-        if (googleForm.info?.documentTitle && googleForm.info?.documentTitle.image) {
-            bannerImageUrl = googleForm.info.documentTitle.image.contentUri ||
-                googleForm.info.documentTitle.image.sourceUri || null;
-        }
-        // Also check for header image in form settings
-        if (!bannerImageUrl && googleForm.formSettings?.headerImage) {
-            bannerImageUrl = googleForm.formSettings.headerImage.contentUri ||
-                googleForm.formSettings.headerImage.sourceUri || null;
+
+        // Check if first item is a standalone image without title (could be used as banner)
+        if (googleForm.items?.[0]?.imageItem?.image) {
+            const firstItem = googleForm.items[0];
+            // Only treat as header if it has no title (pure decorative banner)
+            if (!firstItem.title || firstItem.title === '') {
+                bannerImageUrl = firstItem.imageItem.image.contentUri ||
+                    firstItem.imageItem.image.sourceUri || null;
+
+                // Remove this from questions since we're using it as banner
+                if (bannerImageUrl && convertedQuestions.length > 0 &&
+                    convertedQuestions[0].id.includes(firstItem.itemId)) {
+                    convertedQuestions.shift();
+                }
+            }
         }
 
         let bannerImage = null;
         if (bannerImageUrl) {
             bannerImage = await downloadImageAsBase64(bannerImageUrl);
+        } else {
+            console.log('No banner image URL found in form');
         }
 
         res.json({
@@ -320,14 +330,15 @@ async function convertGoogleFormToOurFormat(googleForm: any): Promise<any[]> {
                 base64Img = await downloadImageAsBase64(imgUrl);
             }
 
-            // Always add the item, with or without image
+            // Use new content type format for images
             items.push({
-                id: `img-${item.itemId}`,
-                itemType: 'section',
-                label: item.title || '',
-                sectionDescription: item.description || '',
-                hasImage: !!base64Img,
-                imageUrl: base64Img || ''
+                id: `content-${item.itemId}`,
+                itemType: 'content',
+                label: item.title || 'Image',
+                contentType: 'image',
+                contentUrl: base64Img || '',
+                contentAlt: item.description || '',
+                description: item.description || ''
             });
             continue;
         }
@@ -339,6 +350,19 @@ async function convertGoogleFormToOurFormat(googleForm: any): Promise<any[]> {
                 itemType: 'section',
                 label: item.title || 'Section',
                 sectionDescription: item.description || ''
+            });
+            continue;
+        }
+
+        // Handle Text Items (standalone title/description blocks)
+        if (item.textItem) {
+            items.push({
+                id: `content-${item.itemId}`,
+                itemType: 'content',
+                label: item.title || 'Text Block',
+                contentType: 'title',
+                contentText: item.title || '',
+                description: item.description || ''
             });
             continue;
         }
@@ -441,14 +465,17 @@ async function convertGoogleFormToOurFormat(googleForm: any): Promise<any[]> {
             }
         }
 
-        // Handle Video Items (treat as link in description)
+        // Handle Video Items - use new content type format
         if (item.videoItem) {
             const videoItem = item.videoItem;
+            const youtubeUrl = videoItem.video?.youtubeUri || '';
             items.push({
-                id: `video-${item.itemId}`,
-                itemType: 'section',
+                id: `content-${item.itemId}`,
+                itemType: 'content',
                 label: item.title || 'Video',
-                sectionDescription: `Watch: ${videoItem.video?.youtubeUri || ''}\n${item.description || ''}`
+                contentType: 'video',
+                contentUrl: youtubeUrl,
+                description: item.description || ''
             });
         }
     }
@@ -470,5 +497,31 @@ export const disconnectGoogleForms = async (req: Request, res: Response) => {
     } catch (error) {
         console.error('Disconnect Google Forms error:', error);
         res.status(500).json({ message: 'Failed to disconnect' });
+    }
+};
+
+// Get access token for Google Picker (used client-side)
+export const getPickerToken = async (req: Request, res: Response) => {
+    try {
+        // @ts-ignore
+        const userId = req.user.id;
+        const accessToken = await refreshAccessToken(userId);
+
+        if (!accessToken) {
+            return res.status(401).json({
+                message: 'Google account not connected. Please connect your Google account first.',
+                needsReconnect: true
+            });
+        }
+
+        // Return the access token and client ID for the Picker
+        res.json({
+            accessToken,
+            clientId: GOOGLE_CLIENT_ID,
+            developerKey: process.env.GOOGLE_API_KEY || '' // Optional: for enhanced Picker features
+        });
+    } catch (error) {
+        console.error('Get Picker token error:', error);
+        res.status(500).json({ message: 'Failed to get Picker token' });
     }
 };
